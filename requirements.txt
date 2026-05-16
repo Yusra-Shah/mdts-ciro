@@ -1,0 +1,12 @@
+google-adk
+google-cloud-firestore
+google-cloud-vision
+google-generativeai
+google-genai
+langchain
+fastmcp
+python-dotenv
+flask
+flask-cors
+pillow
+requests

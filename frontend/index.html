@@ -1,149 +1,1277 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MDTS | Signal Fusion Agent</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>MDTS CIRO — Crisis Intelligence & Response Orchestrator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #070810;
+            --bg2: #0d0f1a;
+            --bg3: #131520;
+            --border: rgba(255, 255, 255, 0.07);
+            --border-hover: rgba(245, 158, 11, 0.4);
+            --amber: #F59E0B;
+            --amber-dim: rgba(245, 158, 11, 0.12);
+            --amber-glow: rgba(245, 158, 11, 0.25);
+            --red: #EF4444;
+            --red-dim: rgba(239, 68, 68, 0.12);
+            --teal: #14B8A6;
+            --teal-dim: rgba(20, 184, 166, 0.12);
+            --blue: #3B82F6;
+            --blue-dim: rgba(59, 130, 246, 0.12);
+            --text: #E8EAF0;
+            --muted: #6B7280;
+            --muted2: #4B5563;
+            --sidebar-w: 220px;
+            --card-radius: 14px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Space Grotesk', sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── SCANLINE OVERLAY ── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.03) 2px, rgba(0, 0, 0, 0.03) 4px);
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        /* ── LAYOUT ── */
+        .app {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* ── SIDEBAR ── */
+        .sidebar {
+            width: var(--sidebar-w);
+            background: var(--bg2);
+            border-right: 1px solid var(--border);
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            display: flex;
+            flex-direction: column;
+            padding: 20px 12px;
+            z-index: 50;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px 24px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 16px;
+        }
+
+        .logo-icon {
+            width: 34px;
+            height: 34px;
+            background: var(--amber);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .logo-text {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            color: var(--text);
+        }
+
+        .logo-sub {
+            font-size: 9px;
+            color: var(--muted);
+            letter-spacing: 0.1em;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 2px;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text);
+        }
+
+        .nav-item.active {
+            background: var(--amber-dim);
+            color: var(--amber);
+            border-color: rgba(245, 158, 11, 0.2);
+        }
+
+        .nav-icon {
+            font-size: 15px;
+            width: 18px;
+            text-align: center;
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            padding: 12px 10px;
+            border-top: 1px solid var(--border);
+        }
+
+        .status-dot {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            color: var(--muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--teal);
+            box-shadow: 0 0 6px var(--teal);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        /* ── MAIN ── */
+        .main {
+            margin-left: var(--sidebar-w);
+            flex: 1;
+            padding: 28px 32px;
+            min-height: 100vh;
+        }
+
+        /* ── SECTIONS ── */
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        .page-header {
+            margin-bottom: 28px;
+        }
+
+        .page-title {
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 4px;
+        }
+
+        .page-sub {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        /* ── STAT GRID ── */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-bottom: 28px;
+        }
+
+        .stat-card {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: var(--card-radius);
+            padding: 18px 20px;
+            position: relative;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+
+        .stat-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--accent-color, var(--amber));
+        }
+
+        .stat-card:hover {
+            border-color: var(--border-hover);
+        }
+
+        .stat-val {
+            font-size: 32px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-color, var(--amber));
+            margin-bottom: 4px;
+            line-height: 1;
+        }
+
+        .stat-lbl {
+            font-size: 11px;
+            color: var(--muted);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+
+        /* ── CARDS ── */
+        .card {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: var(--card-radius);
+            padding: 20px;
+            margin-bottom: 14px;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+
+        .card:hover {
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+
+        /* ── INCIDENT CARDS ── */
+        .incident-card {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: var(--card-radius);
+            padding: 18px 20px 18px 18px;
+            margin-bottom: 12px;
+            border-left: 3px solid var(--red);
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .incident-card:hover {
+            border-color: var(--red);
+            background: rgba(239, 68, 68, 0.04);
+            transform: translateX(3px);
+        }
+
+        .incident-card.moderate {
+            border-left-color: var(--amber);
+        }
+
+        .incident-card.moderate:hover {
+            border-color: var(--amber);
+            background: rgba(245, 158, 11, 0.04);
+        }
+
+        .incident-card.low {
+            border-left-color: var(--teal);
+        }
+
+        .incident-card.low:hover {
+            border-color: var(--teal);
+            background: rgba(20, 184, 166, 0.04);
+        }
+
+        .ic-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .ic-left {}
+
+        .ic-type {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+
+        .ic-loc {
+            font-size: 12px;
+            color: var(--muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .ic-right {
+            text-align: right;
+        }
+
+        .ic-sev {
+            font-size: 36px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--red);
+            line-height: 1;
+        }
+
+        .ic-sev-lbl {
+            font-size: 10px;
+            color: var(--muted);
+            letter-spacing: 0.06em;
+        }
+
+        .ic-meta {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .meta-item {
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .meta-val {
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+        }
+
+        .chip-responding {
+            background: var(--teal-dim);
+            color: var(--teal);
+        }
+
+        .chip-detected {
+            background: var(--amber-dim);
+            color: var(--amber);
+        }
+
+        .chip-verification {
+            background: var(--blue-dim);
+            color: var(--blue);
+        }
+
+        .chip-monitoring {
+            background: rgba(107, 114, 128, 0.15);
+            color: #9CA3AF;
+        }
+
+        .ic-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        .btn {
+            padding: 7px 16px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .btn-amber {
+            background: var(--amber);
+            color: #000;
+        }
+
+        .btn-amber:hover {
+            background: #D97706;
+        }
+
+        .btn-ghost {
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-ghost:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-red {
+            background: var(--red);
+            color: #fff;
+        }
+
+        .btn-full {
+            width: 100%;
+            padding: 14px;
+            font-size: 14px;
+            border-radius: 10px;
+            background: var(--amber);
+            color: #000;
+            border: none;
+            cursor: pointer;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            transition: all 0.2s;
+        }
+
+        .btn-full:hover {
+            background: #D97706;
+            transform: translateY(-1px);
+        }
+
+        /* ── ANALYZE SECTION ── */
+        .analyze-grid {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 20px;
+        }
+
+        .input-group {
+            margin-bottom: 16px;
+        }
+
+        .input-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--muted);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        textarea {
+            width: 100%;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px;
+            color: var(--text);
+            font-size: 13px;
+            font-family: 'Space Grotesk', sans-serif;
+            resize: vertical;
+            transition: border-color 0.2s;
+        }
+
+        textarea:focus {
+            border-color: var(--amber);
+            outline: none;
+        }
+
+        textarea::placeholder {
+            color: var(--muted2);
+        }
+
+        .upload-zone {
+            border: 1.5px dashed rgba(245, 158, 11, 0.35);
+            border-radius: 12px;
+            padding: 32px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 16px;
+            background: transparent;
+        }
+
+        .upload-zone:hover {
+            border-color: var(--amber);
+            background: var(--amber-dim);
+        }
+
+        .upload-zone.has-file {
+            border-color: var(--teal);
+            background: var(--teal-dim);
+        }
+
+        .upload-icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        .upload-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .upload-sub {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .upload-filename {
+            font-size: 12px;
+            color: var(--teal);
+            margin-top: 6px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Results Panel */
+        .results-panel {
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: var(--card-radius);
+            padding: 20px;
+            display: none;
+        }
+
+        .results-panel.visible {
+            display: block;
+        }
+
+        .results-title {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--amber);
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+        }
+
+        .result-row:last-child {
+            border-bottom: none;
+        }
+
+        .result-key {
+            color: var(--muted);
+        }
+
+        .result-val {
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .progress-wrap {
+            margin: 8px 0;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--amber), var(--red));
+            border-radius: 3px;
+            transition: width 0.6s ease;
+        }
+
+        .spinner {
+            width: 36px;
+            height: 36px;
+            border: 2.5px solid rgba(255, 255, 255, 0.08);
+            border-top-color: var(--amber);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 16px auto;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ── RESOURCES ── */
+        .res-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 14px;
+        }
+
+        .res-card {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: var(--card-radius);
+            padding: 18px;
+        }
+
+        .res-title {
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+
+        .res-count {
+            font-size: 11px;
+            color: var(--muted);
+            margin-bottom: 14px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .res-units {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .res-unit {
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            background: var(--teal-dim);
+            color: var(--teal);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .res-unit.deployed {
+            background: var(--red-dim);
+            color: var(--red);
+        }
+
+        /* ── LOGS ── */
+        .log-card {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 10px;
+        }
+
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .log-agent {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--amber);
+            letter-spacing: 0.06em;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .log-step {
+            font-size: 11px;
+            color: var(--muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .log-time {
+            font-size: 10px;
+            color: var(--muted2);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .log-obs {
+            font-size: 12px;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+
+        .log-reason {
+            font-size: 11px;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .log-decision {
+            font-size: 11px;
+            color: var(--teal);
+            margin-top: 6px;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* ── AGENT TIMELINE ── */
+        .timeline {
+            padding-left: 28px;
+            position: relative;
+            margin-top: 16px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 7px;
+            top: 6px;
+            bottom: 6px;
+            width: 1.5px;
+            background: var(--border);
+        }
+
+        .tl-item {
+            position: relative;
+            margin-bottom: 16px;
+        }
+
+        .tl-dot {
+            position: absolute;
+            left: -25px;
+            top: 3px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--bg);
+            border: 2px solid var(--teal);
+        }
+
+        .tl-dot.done {
+            background: var(--teal);
+            border-color: var(--teal);
+        }
+
+        .tl-dot.pending {
+            border-color: var(--muted2);
+        }
+
+        .tl-agent {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--amber);
+            letter-spacing: 0.08em;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .tl-action {
+            font-size: 13px;
+            color: var(--text);
+            margin: 3px 0;
+        }
+
+        .tl-time {
+            font-size: 10px;
+            color: var(--muted2);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* ── TOAST ── */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            z-index: 9999;
+            animation: slideUp 0.3s ease;
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        .toast-ok {
+            background: var(--teal);
+            color: #fff;
+        }
+
+        .toast-err {
+            background: var(--red);
+            color: #fff;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        /* ── BOTTOM NAV (mobile) ── */
+        .bottom-nav {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(7, 8, 16, 0.97);
+            border-top: 1px solid var(--border);
+            justify-content: space-around;
+            padding: 6px 0 10px;
+            z-index: 50;
+            backdrop-filter: blur(16px);
+        }
+
+        .bn-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            cursor: pointer;
+            padding: 6px 12px;
+            border-radius: 8px;
+            color: var(--muted);
+            font-size: 10px;
+            transition: color 0.2s;
+        }
+
+        .bn-item.active {
+            color: var(--amber);
+        }
+
+        .bn-icon {
+            font-size: 18px;
+        }
+
+        /* ── EMPTY STATE ── */
+        .empty {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--muted2);
+        }
+
+        .empty-icon {
+            font-size: 40px;
+            margin-bottom: 12px;
+        }
+
+        .empty-text {
+            font-size: 14px;
+        }
+
+        /* ── SECTION HEADER LINE ── */
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .section-line {
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* ── DETAIL EXPAND ── */
+        .detail-panel {
+            display: none;
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border);
+        }
+
+        .detail-panel.open {
+            display: block;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .detail-block {
+            background: var(--bg3);
+            border-radius: 10px;
+            padding: 14px;
+        }
+
+        .detail-label {
+            font-size: 10px;
+            color: var(--muted);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .detail-val {
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        /* ── MSG CARDS ── */
+        .msg-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .msg-card {
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+        }
+
+        .msg-type {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--amber);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .msg-text {
+            font-size: 12px;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .msg-status {
+            font-size: 10px;
+            color: var(--teal);
+            margin-top: 6px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* ── RESPONSIVE ── */
+        @media(max-width:900px) {
+            .analyze-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media(max-width:768px) {
+            .sidebar {
+                display: none;
+            }
+
+            .bottom-nav {
+                display: flex;
+            }
+
+            .main {
+                margin-left: 0;
+                padding: 16px 16px 80px;
+            }
+
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .res-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .detail-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .msg-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ── MONOSPACE ACCENTS ── */
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .tag {
+            display: inline-block;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 2px 8px;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--muted);
+        }
+
+        /* conflict badge */
+        .conflict-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 6px;
+            padding: 2px 8px;
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--amber);
+            letter-spacing: 0.06em;
+            font-family: 'JetBrains Mono', monospace;
+        }
+    </style>
 </head>
+
 <body>
-    <div class="layout">
-        <!-- Sidebar (Desktop) -->
+    <div class="app">
+
+        <!-- SIDEBAR -->
         <aside class="sidebar">
-            <div class="logo">MDTS CIRO</div>
+            <div class="logo">
+                <div class="logo-icon">🚨</div>
+                <div>
+                    <div class="logo-text">MDTS CIRO</div>
+                    <div class="logo-sub">PAKISTAN DISASTER AI</div>
+                </div>
+            </div>
             <nav>
-                <div class="nav-item active" onclick="showSection('dashboard')">
-                    <i class="fa-solid fa-chart-line"></i>
-                    <span>Dashboard</span>
-                </div>
-                <div class="nav-item" onclick="showSection('analyze')">
-                    <i class="fa-solid fa-microscope"></i>
-                    <span>Analyze</span>
-                </div>
-                <div class="nav-item" onclick="showSection('incidents')">
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-                    <span>Incidents</span>
-                </div>
-                <div class="nav-item" onclick="showSection('resources')">
-                    <i class="fa-solid fa-truck-medical"></i>
-                    <span>Resources</span>
-                </div>
-                <div class="nav-item" onclick="showSection('logs')">
-                    <i class="fa-solid fa-terminal"></i>
-                    <span>Agent Logs</span>
-                </div>
+                <div class="nav-item active" onclick="showSection('dashboard')"><span class="nav-icon">⬛</span>
+                    Dashboard</div>
+                <div class="nav-item" onclick="showSection('analyze')"><span class="nav-icon">◈</span> Analyze</div>
+                <div class="nav-item" onclick="showSection('incidents')"><span class="nav-icon">⚠</span> Incidents</div>
+                <div class="nav-item" onclick="showSection('resources')"><span class="nav-icon">◉</span> Resources</div>
+                <div class="nav-item" onclick="showSection('logs')"><span class="nav-icon">≡</span> Agent Logs</div>
             </nav>
+            <div class="sidebar-footer">
+                <div class="status-dot">
+                    <div class="dot"></div> SYSTEM ONLINE
+                </div>
+            </div>
         </aside>
 
-        <!-- Bottom Nav (Mobile) -->
+        <!-- BOTTOM NAV (mobile) -->
         <nav class="bottom-nav">
-            <div class="bottom-nav-item active" onclick="showSection('dashboard')">
-                <i class="fa-solid fa-chart-line"></i>
-                <span>Dash</span>
-            </div>
-            <div class="bottom-nav-item" onclick="showSection('analyze')">
-                <i class="fa-solid fa-microscope"></i>
-                <span>Analyze</span>
-            </div>
-            <div class="bottom-nav-item" onclick="showSection('incidents')">
-                <i class="fa-solid fa-triangle-exclamation"></i>
-                <span>Incidents</span>
-            </div>
-            <div class="bottom-nav-item" onclick="showSection('resources')">
-                <i class="fa-solid fa-truck-medical"></i>
-                <span>Units</span>
-            </div>
-            <div class="bottom-nav-item" onclick="showSection('logs')">
-                <i class="fa-solid fa-terminal"></i>
-                <span>Logs</span>
-            </div>
+            <div class="bn-item active" onclick="showSection('dashboard')"><span class="bn-icon">⬛</span>Dash</div>
+            <div class="bn-item" onclick="showSection('analyze')"><span class="bn-icon">◈</span>Analyze</div>
+            <div class="bn-item" onclick="showSection('incidents')"><span class="bn-icon">⚠</span>Events</div>
+            <div class="bn-item" onclick="showSection('resources')"><span class="bn-icon">◉</span>Units</div>
+            <div class="bn-item" onclick="showSection('logs')"><span class="bn-icon">≡</span>Logs</div>
         </nav>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            
-            <!-- Dashboard Section -->
+        <!-- MAIN -->
+        <main class="main">
+
+            <!-- ═══ DASHBOARD ═══ -->
             <section id="dashboard" class="section active">
-                <h1 class="page-title">Operational Dashboard</h1>
-                <div class="stats-grid" id="dashboard-stats">
-                    <!-- Stat cards injected by JS -->
+                <div class="page-header">
+                    <div class="page-title">Operational Dashboard</div>
+                    <div class="page-sub">Real-time disaster triage · Pakistan Emergency Response</div>
                 </div>
-                <h2 class="section-title">High Priority Incidents</h2>
+
+                <div class="stats" id="stats-grid">
+                    <div class="stat-card" style="--accent-color:var(--red)">
+                        <div class="stat-val" id="stat-incidents">—</div>
+                        <div class="stat-lbl">Active Incidents</div>
+                    </div>
+                    <div class="stat-card" style="--accent-color:var(--amber)">
+                        <div class="stat-val" id="stat-resources">8</div>
+                        <div class="stat-lbl">Resources Deployed</div>
+                    </div>
+                    <div class="stat-card" style="--accent-color:var(--teal)">
+                        <div class="stat-val" id="stat-time">4.2m</div>
+                        <div class="stat-lbl">Avg Response Time</div>
+                    </div>
+                    <div class="stat-card" style="--accent-color:var(--blue)">
+                        <div class="stat-val" id="stat-status">ON</div>
+                        <div class="stat-lbl">System Status</div>
+                    </div>
+                </div>
+
+                <div class="section-header">
+                    <span style="font-size:12px;font-weight:700;letter-spacing:0.1em;color:var(--muted)">HIGH PRIORITY
+                        INCIDENTS</span>
+                    <div class="section-line"></div>
+                    <span class="tag" id="last-updated">LIVE</span>
+                </div>
+
                 <div id="dashboard-incidents">
-                    <!-- Incident cards injected by JS -->
+                    <div class="empty">
+                        <div class="empty-icon">📡</div>
+                        <div class="empty-text">No incidents yet. Run an analysis to begin triage.</div>
+                    </div>
                 </div>
             </section>
 
-            <!-- Analyze Section -->
+            <!-- ═══ ANALYZE ═══ -->
             <section id="analyze" class="section">
-                <h1 class="page-title">Multimodal Analysis</h1>
-                <div class="analysis-container">
-                    <div class="card">
-                        <div class="upload-zone" id="upload-zone">
-                            <i class="fa-solid fa-cloud-arrow-up fa-2x" style="color: var(--primary); margin-bottom: 12px;"></i>
-                            <h3>Satellite / Drone Imagery</h3>
-                            <p class="stat-label">Drag & Drop or Click to Select</p>
-                            <p id="filename-display" style="margin-top: 8px; color: var(--primary); font-weight: 600;"></p>
+                <div class="page-header">
+                    <div class="page-title">Multimodal Analysis Lab</div>
+                    <div class="page-sub">Feed all three signal streams — AI agents do the rest</div>
+                </div>
+
+                <div class="analyze-grid">
+                    <div>
+                        <div class="card">
+                            <div class="upload-zone" id="upload-zone"
+                                onclick="document.getElementById('img-input').click()">
+                                <div class="upload-icon">🛰</div>
+                                <div class="upload-title">Satellite / Drone Image</div>
+                                <div class="upload-sub">Click to select image file</div>
+                                <div class="upload-filename" id="filename-display"></div>
+                            </div>
+                            <input type="file" id="img-input" accept="image/*" style="display:none"
+                                onchange="handleFile(this)">
+
+                            <div class="input-group">
+                                <label class="input-label">Emergency Call Transcript</label>
+                                <textarea id="transcript-input" rows="5"
+                                    placeholder="Paste voice-to-text emergency transcript here...&#10;&#10;Example: Hello, this is an emergency. Water level is rising fast in Gulshan-e-Iqbal. My family is trapped on the roof. Please send help immediately."></textarea>
+                            </div>
+
+                            <div class="input-group">
+                                <label class="input-label">Social Media Posts (JSON Array)</label>
+                                <textarea id="social-input" rows="6"
+                                    placeholder='[&#10;  {"text":"Flash flood in Gulshan!","location_mention":"Gulshan","likes":1200,"verified":true},&#10;  {"text":"Cars floating on University Road","location_mention":"Gulshan-e-Iqbal","likes":450,"verified":false}&#10;]'></textarea>
+                            </div>
+
+                            <button class="btn-full" onclick="runAnalysis()">⚡ ANALYZE &amp; TRIAGE</button>
+
+                            <div id="analysis-loading" style="display:none;text-align:center;padding:20px 0;">
+                                <div class="spinner"></div>
+                                <div
+                                    style="font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:0.06em;">
+                                    AGENTS PROCESSING SIGNALS...</div>
+                            </div>
                         </div>
                     </div>
-                    
-                    <div class="card">
-                        <h3>Emergency Transcript</h3>
-                        <textarea id="transcript-input" class="input-area" rows="4" placeholder="Enter voice transcript text..."></textarea>
-                    </div>
 
-                    <div class="card">
-                        <h3>Social Media Feed (JSON)</h3>
-                        <textarea id="social-input" class="input-area" rows="6" placeholder='[{"text": "Flood in Gulshan!", ...}]'></textarea>
-                    </div>
-
-                    <button class="btn btn-primary" style="width: 100%; padding: 16px;" onclick="runAnalysis()">
-                        <i class="fa-solid fa-bolt"></i> ANALYZE AND TRIAGE
-                    </button>
-
-                    <div id="analysis-loading" style="display: none;">
-                        <div class="loading-spinner"></div>
-                        <p style="text-align: center; color: var(--text-muted);">Agents are processing signals...</p>
-                    </div>
-
-                    <div id="analysis-results" class="card" style="display: none;">
-                        <h2>Analysis Results</h2>
-                        <div id="results-content"></div>
+                    <div>
+                        <div class="results-panel card" id="results-panel">
+                            <div class="results-title">▸ SIGNAL ANALYSIS REPORT</div>
+                            <div id="results-content"></div>
+                        </div>
+                        <div class="card" style="margin-top:0;">
+                            <div
+                                style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:0.1em;margin-bottom:12px;">
+                                QUICK DEMO — LOAD MOCK DATA</div>
+                            <button class="btn btn-ghost" style="width:100%;margin-bottom:8px;"
+                                onclick="loadMockData()">Load Gulshan Flood Scenario</button>
+                            <button class="btn btn-ghost" style="width:100%;" onclick="loadFalseAlarmData()">Load False
+                                Alarm Scenario</button>
+                        </div>
                     </div>
                 </div>
             </section>
 
-            <!-- Incidents Section -->
+            <!-- ═══ INCIDENTS ═══ -->
             <section id="incidents" class="section">
-                <h1 class="page-title">Incident Management</h1>
+                <div class="page-header">
+                    <div class="page-title">Active Incidents</div>
+                    <div class="page-sub">All detected incidents with full dispatch detail</div>
+                </div>
                 <div id="all-incidents-list">
-                    <!-- All incidents injected by JS -->
+                    <div class="empty">
+                        <div class="empty-icon">⚠</div>
+                        <div class="empty-text">No incidents in database yet.</div>
+                    </div>
                 </div>
             </section>
 
-            <!-- Resources Section -->
+            <!-- ═══ RESOURCES ═══ -->
             <section id="resources" class="section">
-                <h1 class="page-title">Global Resource Pool</h1>
-                <div id="resource-pool-display">
-                    <!-- Resource units injected by JS -->
+                <div class="page-header">
+                    <div class="page-title">Global Resource Pool</div>
+                    <div class="page-sub">Pakistan Emergency Response Fleet</div>
+                </div>
+                <div class="res-grid" id="resource-pool-display">
+                    <div class="res-card">
+                        <div class="res-title">🚑 Ambulances</div>
+                        <div class="res-count mono">5 TOTAL · 3 AVAILABLE · 2 DEPLOYED</div>
+                        <div class="res-units">
+                            <div class="res-unit">AMB-01</div>
+                            <div class="res-unit">AMB-02</div>
+                            <div class="res-unit">AMB-03</div>
+                            <div class="res-unit deployed">AMB-04</div>
+                            <div class="res-unit deployed">AMB-05</div>
+                        </div>
+                    </div>
+                    <div class="res-card">
+                        <div class="res-title">🚒 Rescue Teams</div>
+                        <div class="res-count mono">3 TOTAL · 2 AVAILABLE · 1 DEPLOYED</div>
+                        <div class="res-units">
+                            <div class="res-unit">RSQ-01</div>
+                            <div class="res-unit">RSQ-02</div>
+                            <div class="res-unit deployed">RSQ-03</div>
+                        </div>
+                    </div>
+                    <div class="res-card">
+                        <div class="res-title">👮 Police Units</div>
+                        <div class="res-count mono">4 TOTAL · 2 AVAILABLE · 2 DEPLOYED</div>
+                        <div class="res-units">
+                            <div class="res-unit">POL-01</div>
+                            <div class="res-unit">POL-02</div>
+                            <div class="res-unit deployed">POL-03</div>
+                            <div class="res-unit deployed">POL-04</div>
+                        </div>
+                    </div>
+                    <div class="res-card">
+                        <div class="res-title">🚛 Water Tankers</div>
+                        <div class="res-count mono">2 TOTAL · 1 AVAILABLE · 1 DEPLOYED</div>
+                        <div class="res-units">
+                            <div class="res-unit">TKR-01</div>
+                            <div class="res-unit deployed">TKR-02</div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
-            <!-- Logs Section -->
+            <!-- ═══ LOGS ═══ -->
             <section id="logs" class="section">
-                <h1 class="page-title">Agent Reasoning Logs</h1>
+                <div class="page-header">
+                    <div class="page-title">Agent Reasoning Logs</div>
+                    <div class="page-sub">Full transparency — every decision traced</div>
+                </div>
                 <div id="logs-list">
-                    <!-- Logs injected by JS -->
+                    <div class="empty">
+                        <div class="empty-icon">≡</div>
+                        <div class="empty-text">No agent logs yet. Run an analysis first.</div>
+                    </div>
                 </div>
             </section>
 
         </main>
     </div>
 
-    <!-- Toast Container -->
-    <div class="toast-container" id="toast-container"></div>
-
+    <div id="toast-container"></div>
     <script src="/static/js/app.js"></script>
 </body>
+
 </html>

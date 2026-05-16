@@ -13,7 +13,10 @@ from agents.agent3_allocation import run_agent3
 from agents.agent4_execution import run_agent4
 from tools.firestore_tool import get_all_incidents, get_incident_by_id, initialize_resources, db
 
-app = Flask(__name__)
+app = Flask(__name__, 
+    static_folder='frontend/static',
+    static_url_path='/static',
+    template_folder='frontend')
 CORS(app)
 
 def run_pipeline(image_path, transcript_text, social_posts):
@@ -80,9 +83,9 @@ def compare_results(pipeline_result, baseline_result):
         "winner": "agentic"
     }
 
-@app.route("/")
-def serve_frontend():
-    return send_from_directory("frontend", "index.html")
+@app.route('/')
+def index():
+    return send_from_directory('frontend', 'index.html')
 
 @app.route("/analyze", methods=["POST"])
 def analyze():

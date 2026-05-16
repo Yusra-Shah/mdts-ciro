@@ -6,15 +6,9 @@ load_dotenv()
 import google.genai as genai
 from google.genai import types
 
-PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "mdts-ciro-2026")
-LOCATION = "us-central1"
-MODEL = "gemini-2.0-flash-001"
+MODEL = "gemini-flash-latest"
 
-client = genai.Client(
-    vertexai=True,
-    project=PROJECT_ID,
-    location=LOCATION
-)
+client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 
 def classify_transcript(text):
     try:

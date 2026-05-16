@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MDTS | Signal Fusion Agent</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="layout">
+        <!-- Sidebar (Desktop) -->
+        <aside class="sidebar">
+            <div class="logo">MDTS CIRO</div>
+            <nav>
+                <div class="nav-item active" onclick="showSection('dashboard')">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </div>
+                <div class="nav-item" onclick="showSection('analyze')">
+                    <i class="fa-solid fa-microscope"></i>
+                    <span>Analyze</span>
+                </div>
+                <div class="nav-item" onclick="showSection('incidents')">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>Incidents</span>
+                </div>
+                <div class="nav-item" onclick="showSection('resources')">
+                    <i class="fa-solid fa-truck-medical"></i>
+                    <span>Resources</span>
+                </div>
+                <div class="nav-item" onclick="showSection('logs')">
+                    <i class="fa-solid fa-terminal"></i>
+                    <span>Agent Logs</span>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Bottom Nav (Mobile) -->
+        <nav class="bottom-nav">
+            <div class="bottom-nav-item active" onclick="showSection('dashboard')">
+                <i class="fa-solid fa-chart-line"></i>
+                <span>Dash</span>
+            </div>
+            <div class="bottom-nav-item" onclick="showSection('analyze')">
+                <i class="fa-solid fa-microscope"></i>
+                <span>Analyze</span>
+            </div>
+            <div class="bottom-nav-item" onclick="showSection('incidents')">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span>Incidents</span>
+            </div>
+            <div class="bottom-nav-item" onclick="showSection('resources')">
+                <i class="fa-solid fa-truck-medical"></i>
+                <span>Units</span>
+            </div>
+            <div class="bottom-nav-item" onclick="showSection('logs')">
+                <i class="fa-solid fa-terminal"></i>
+                <span>Logs</span>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="section active">
+                <h1 class="page-title">Operational Dashboard</h1>
+                <div class="stats-grid" id="dashboard-stats">
+                    <!-- Stat cards injected by JS -->
+                </div>
+                <h2 class="section-title">High Priority Incidents</h2>
+                <div id="dashboard-incidents">
+                    <!-- Incident cards injected by JS -->
+                </div>
+            </section>
+
+            <!-- Analyze Section -->
+            <section id="analyze" class="section">
+                <h1 class="page-title">Multimodal Analysis</h1>
+                <div class="analysis-container">
+                    <div class="card">
+                        <div class="upload-zone" id="upload-zone">
+                            <i class="fa-solid fa-cloud-arrow-up fa-2x" style="color: var(--primary); margin-bottom: 12px;"></i>
+                            <h3>Satellite / Drone Imagery</h3>
+                            <p class="stat-label">Drag & Drop or Click to Select</p>
+                            <p id="filename-display" style="margin-top: 8px; color: var(--primary); font-weight: 600;"></p>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h3>Emergency Transcript</h3>
+                        <textarea id="transcript-input" class="input-area" rows="4" placeholder="Enter voice transcript text..."></textarea>
+                    </div>
+
+                    <div class="card">
+                        <h3>Social Media Feed (JSON)</h3>
+                        <textarea id="social-input" class="input-area" rows="6" placeholder='[{"text": "Flood in Gulshan!", ...}]'></textarea>
+                    </div>
+
+                    <button class="btn btn-primary" style="width: 100%; padding: 16px;" onclick="runAnalysis()">
+                        <i class="fa-solid fa-bolt"></i> ANALYZE AND TRIAGE
+                    </button>
+
+                    <div id="analysis-loading" style="display: none;">
+                        <div class="loading-spinner"></div>
+                        <p style="text-align: center; color: var(--text-muted);">Agents are processing signals...</p>
+                    </div>
+
+                    <div id="analysis-results" class="card" style="display: none;">
+                        <h2>Analysis Results</h2>
+                        <div id="results-content"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Incidents Section -->
+            <section id="incidents" class="section">
+                <h1 class="page-title">Incident Management</h1>
+                <div id="all-incidents-list">
+                    <!-- All incidents injected by JS -->
+                </div>
+            </section>
+
+            <!-- Resources Section -->
+            <section id="resources" class="section">
+                <h1 class="page-title">Global Resource Pool</h1>
+                <div id="resource-pool-display">
+                    <!-- Resource units injected by JS -->
+                </div>
+            </section>
+
+            <!-- Logs Section -->
+            <section id="logs" class="section">
+                <h1 class="page-title">Agent Reasoning Logs</h1>
+                <div id="logs-list">
+                    <!-- Logs injected by JS -->
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

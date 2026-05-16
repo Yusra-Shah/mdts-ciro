@@ -1,0 +1,58 @@
+[
+  {
+    "id": "t_001",
+    "text": "Hello, is this emergency? Please help! Water has entered our house on University Road in Gulshan-e-Iqbal. My family is trapped on the roof and the water level is rising fast! Send a rescue boat please!",
+    "timestamp": "2026-05-16T10:05:00Z",
+    "caller_location": "Gulshan-e-Iqbal, Karachi",
+    "expected_urgency": 5
+  },
+  {
+    "id": "t_002",
+    "text": "Oh my god, a building just collapsed here near KDA roundabout in North Nazimabad! I can hear people screaming from under the rubble. There is so much dust. We need an ambulance and rescue team right now!",
+    "timestamp": "2026-05-16T10:15:00Z",
+    "caller_location": "North Nazimabad, Karachi",
+    "expected_urgency": 5
+  },
+  {
+    "id": "t_003",
+    "text": "Fire brigade? A commercial building in DHA Phase 5 has caught fire. It started on the ground floor but it's spreading up very quickly. I think some people might be inside.",
+    "timestamp": "2026-05-16T10:20:00Z",
+    "caller_location": "DHA Phase 5, Karachi",
+    "expected_urgency": 4
+  },
+  {
+    "id": "t_004",
+    "text": "We need medical help in Lyari. Two elderly men just fainted due to the extreme heatwave. They are unconscious and not waking up. Please send an ambulance, it's scorching hot here.",
+    "timestamp": "2026-05-16T12:00:00Z",
+    "caller_location": "Lyari, Karachi",
+    "expected_urgency": 4
+  },
+  {
+    "id": "t_005",
+    "text": "There is massive flash flooding in Sector G-10 right now. Cars are literally submerged in the water. We can't step out of the office. Please send rescue teams.",
+    "timestamp": "2026-05-16T14:30:00Z",
+    "caller_location": "G-10, Islamabad",
+    "expected_urgency": 4
+  },
+  {
+    "id": "t_006",
+    "text": "There was a loud explosion from the main transformer in Main Market Gulberg and now there's smoke. Complete power failure in the entire area, the wires are sparking. It's very dangerous.",
+    "timestamp": "2026-05-16T15:10:00Z",
+    "caller_location": "Gulberg, Lahore",
+    "expected_urgency": 3
+  },
+  {
+    "id": "t_007",
+    "text": "The streets are heavily flooded here in Latifabad. Water is starting to seep into the houses. The drainage is completely blocked.",
+    "timestamp": "2026-05-16T09:45:00Z",
+    "caller_location": "Latifabad, Hyderabad",
+    "expected_urgency": 3
+  },
+  {
+    "id": "t_008",
+    "text": "I'm calling from G-9 Markaz. There's water absolutely everywhere on the main road. I don't know if it's flooding from the rain or if a massive water main just burst, but the road is blocked.",
+    "timestamp": "2026-05-16T16:00:00Z",
+    "caller_location": "G-9, Islamabad",
+    "expected_urgency": 2
+  }
+]

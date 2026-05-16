@@ -90,3 +90,38 @@ Return JSON with exactly these fields:
             "key_themes": [],
             "sample_posts": []
         }
+
+def generate_stakeholder_messages(incident_data):
+    try:
+        prompt = f"""You are a crisis communication expert for the Pakistan Disaster Response Team.
+Generate 4 stakeholder messages for this incident:
+Location: {incident_data.get('location')}
+Crisis Type: {incident_data.get('crisis_type')}
+Severity: {incident_data.get('severity_score')}
+Resources Dispatched: {incident_data.get('resource_assignment')}
+
+Respond ONLY with valid JSON, no extra text, no markdown.
+Fields:
+- public_alert: (Under 80 words, simple Urdu-friendly English, warning the public)
+- hospital_notice: (Medical details, mention specific hospital: {incident_data.get('hospital_alert')})
+- utility_alert: (Specific alert for KESC or SNGPL mentioning infrastructure risk)
+- media_brief: (Official government tone, under 100 words, factual summary)"""
+
+        response = client.models.generate_content(
+            model=MODEL,
+            contents=prompt
+        )
+        text_response = response.text.strip()
+        if text_response.startswith("```"):
+            text_response = text_response.split("```")[1]
+            if text_response.startswith("json"):
+                text_response = text_response[4:]
+        return json.loads(text_response.strip())
+    except Exception as e:
+        print(f"Gemini generate_stakeholder_messages error: {e}")
+        return {
+            "public_alert": f"Emergency at {incident_data.get('location')}. Please stay away.",
+            "hospital_notice": f"Incident at {incident_data.get('location')}. Prepare for arrivals at {incident_data.get('hospital_alert')}.",
+            "utility_alert": f"Check infrastructure at {incident_data.get('location')}. Potential risks detected.",
+            "media_brief": f"Official Update: An incident at {incident_data.get('location')} is being managed. Resources are deployed."
+        }

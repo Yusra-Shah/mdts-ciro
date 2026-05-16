@@ -79,6 +79,7 @@ def run_agent3(agent2_output):
             "location": loc,
             "severity_score": severity,
             "priority_rank": rank,
+            "crisis_type": inc.get("crisis_type", "unknown"),
             "resource_assignment": allocated,
             "allocation_reasoning": reasoning,
             "traffic_rerouting": rerouting,

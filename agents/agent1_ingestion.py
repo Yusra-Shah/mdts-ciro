@@ -1,123 +1,133 @@
-import sys
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timezone
+from dotenv import load_dotenv
 
+load_dotenv()
+
+import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tools.vision_tool import analyze_image
 from tools.gemini_tool import classify_transcript, analyze_social_posts
 
-try:
-    from google_adk import Agent
-except ImportError:
-    class Agent:
-        def __init__(self, name, system_prompt):
-            self.name = name
-            self.system_prompt = system_prompt
+AGENT_NAME = "Agent1_SignalIngestion"
 
 def run_agent1(image_path, transcript_text, social_posts_list):
-    """
-    Agent 1 function that orchestrates the ingestion and normalization of signals.
-    """
-    system_prompt = "You are Agent 1 \u2014 the Signal Ingestion Agent for MDTS, Pakistan's Multimodal Disaster Triage System. Your role is to receive three input streams simultaneously \u2014 satellite or drone imagery, emergency call transcripts, and social media posts \u2014 and normalize them into unified signal objects for downstream processing. You must call the appropriate tool for each stream, handle failures gracefully, and always return a structured list of normalized signals. Be precise, never hallucinate locations or details not present in the inputs."
+    print(f"\n{'='*50}")
+    print(f"AGENT 1 — SIGNAL INGESTION STARTING")
+    print(f"{'='*50}")
     
-    agent = Agent(name="Agent1_Ingestion", system_prompt=system_prompt)
-    
+    timestamp = datetime.now(timezone.utc).isoformat()
     signals = []
-    timestamp = datetime.utcnow().isoformat() + "Z"
-    
-    print("Agent1: Processing satellite/drone imagery...")
+
+    # STREAM 1: Satellite/Drone Image
+    print("Agent 1: Processing satellite image...")
     try:
         vision_result = analyze_image(image_path)
-        location = "unknown" 
-        
-        signal = {
-            "signal_id": f"sig_vis_{len(signals)+1}",
-            "source": "satellite",
-            "type": "visual",
-            "location": location,
-            "severity_hint": vision_result.get("damage_score", 0.0),
-            "confidence": vision_result.get("confidence", 0.0),
-            "credibility": 0.85,
-            "crisis_type_hint": vision_result.get("crisis_type", "unknown"),
-            "raw_data": vision_result,
-            "timestamp": timestamp
-        }
-        signals.append(signal)
-        print(f"Agent1: Satellite signal normalized. Damage Score: {signal['severity_hint']}")
     except Exception as e:
-        print(f"Agent1: Error processing image: {e}")
+        print(f"Agent 1: Image processing failed — {e}")
+        vision_result = {
+            "damage_score": 0.0,
+            "detected_labels": [],
+            "crisis_type": "unknown",
+            "confidence": 0.0,
+            "raw_response": {}
+        }
 
-    print("Agent1: Processing emergency call transcript...")
+    signals.append({
+        "signal_id": f"sig_satellite_{timestamp}",
+        "source": "satellite",
+        "type": "visual",
+        "location": "unknown",
+        "severity_hint": vision_result.get("damage_score", 0.0),
+        "confidence": vision_result.get("confidence", 0.0),
+        "credibility": 0.85,
+        "crisis_type_hint": vision_result.get("crisis_type", "unknown"),
+        "raw_data": vision_result,
+        "timestamp": timestamp
+    })
+    print(f"Agent 1: Satellite signal — crisis={vision_result.get('crisis_type')} severity={vision_result.get('damage_score')}")
+
+    # STREAM 2: Emergency Call Transcript
+    print("Agent 1: Analyzing emergency transcript...")
     try:
         transcript_result = classify_transcript(transcript_text)
-        
-        urgency_level = transcript_result.get("urgency_level", 1)
-        if isinstance(urgency_level, str) and urgency_level.isdigit():
-            urgency_level = int(urgency_level)
-            
-        signal = {
-            "signal_id": f"sig_voice_{len(signals)+1}",
-            "source": "emergency_call",
-            "type": "voice",
-            "location": transcript_result.get("location_text", "unknown"),
-            "severity_hint": float(urgency_level) * 2.0,
-            "confidence": float(transcript_result.get("caller_confidence", 0.0)),
-            "credibility": 0.90,
-            "crisis_type_hint": transcript_result.get("distress_class", "unknown"),
-            "raw_data": transcript_result,
-            "timestamp": timestamp
-        }
-        signals.append(signal)
-        print(f"Agent1: Emergency call signal normalized. Location: {signal['location']}")
     except Exception as e:
-        print(f"Agent1: Error processing transcript: {e}")
+        print(f"Agent 1: Transcript analysis failed — {e}")
+        transcript_result = {
+            "urgency_level": 1,
+            "location_text": "unknown",
+            "distress_class": "other",
+            "caller_confidence": 0.0,
+            "summary": "Analysis failed"
+        }
 
-    print(f"Agent1: Processing {len(social_posts_list)} social media posts...")
+    signals.append({
+        "signal_id": f"sig_call_{timestamp}",
+        "source": "emergency_call",
+        "type": "voice",
+        "location": transcript_result.get("location_text", "unknown"),
+        "severity_hint": float(transcript_result.get("urgency_level", 1)) * 2.0,
+        "confidence": transcript_result.get("caller_confidence", 0.5),
+        "credibility": 0.90,
+        "crisis_type_hint": transcript_result.get("distress_class", "other"),
+        "raw_data": transcript_result,
+        "timestamp": timestamp
+    })
+    print(f"Agent 1: Call signal — location={transcript_result.get('location_text')} urgency={transcript_result.get('urgency_level')}")
+
+    # STREAM 3: Social Media Posts
+    print("Agent 1: Processing social media posts...")
     try:
         social_result = analyze_social_posts(social_posts_list)
-        
-        signal = {
-            "signal_id": f"sig_text_{len(signals)+1}",
-            "source": "social_media",
-            "type": "text",
-            "location": social_result.get("dominant_location", "unknown"),
-            "severity_hint": float(social_result.get("urgency_score", 0.0)),
-            "confidence": 0.7, 
-            "credibility": float(social_result.get("credibility_score", 0.0)),
-            "crisis_type_hint": "unknown", 
-            "raw_data": social_result,
-            "timestamp": timestamp
-        }
-        signals.append(signal)
-        print(f"Agent1: Social media signal normalized. Dominant Location: {signal['location']}")
     except Exception as e:
-        print(f"Agent1: Error processing social media: {e}")
+        print(f"Agent 1: Social media analysis failed — {e}")
+        social_result = {
+            "dominant_location": "unknown",
+            "mention_velocity": 0.0,
+            "urgency_score": 0.0,
+            "credibility_score": 0.0,
+            "conflict_detected": False,
+            "conflict_description": None,
+            "key_themes": [],
+            "sample_posts": []
+        }
+
+    signals.append({
+        "signal_id": f"sig_social_{timestamp}",
+        "source": "social_media",
+        "type": "text",
+        "location": social_result.get("dominant_location", "unknown"),
+        "severity_hint": social_result.get("urgency_score", 0.0),
+        "confidence": social_result.get("credibility_score", 0.0),
+        "credibility": social_result.get("credibility_score", 0.5),
+        "crisis_type_hint": social_result.get("key_themes", ["unknown"])[0] if social_result.get("key_themes") else "unknown",
+        "raw_data": social_result,
+        "timestamp": timestamp
+    })
+    print(f"Agent 1: Social signal — location={social_result.get('dominant_location')} urgency={social_result.get('urgency_score')}")
+
+    print(f"\nAgent 1 COMPLETE — {len(signals)} signals processed")
+    print(f"{'='*50}\n")
 
     return {
-        "signals": signals,
+        "agent_name": AGENT_NAME,
         "processing_timestamp": timestamp,
-        "total_signals_count": len(signals),
-        "agent_name": getattr(agent, 'name', 'Agent1_Ingestion')
+        "total_signals": len(signals),
+        "signals": signals
     }
 
 if __name__ == "__main__":
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    import json
     
-    try:
-        with open(os.path.join(base_dir, "mock_data", "social_posts.json"), "r") as f:
-            all_social_posts = json.load(f)
-        test_social_posts = [p for p in all_social_posts if p.get("id") in [f"s_{i:03d}" for i in range(1, 9)]]
-    except FileNotFoundError:
-        print("mock_data/social_posts.json not found. Using empty list for social posts.")
-        test_social_posts = []
+    with open("mock_data/social_posts.json") as f:
+        all_posts = json.load(f)
     
-    test_transcript = "Hello, is this emergency? Please help! Water has entered our house on University Road in Gulshan-e-Iqbal. My family is trapped on the roof and the water level is rising fast! Send a rescue boat please!"
+    result = run_agent1(
+        image_path="mock_data/images/test.jpg",
+        transcript_text="Water has entered our house in Gulshan-e-Iqbal. Family trapped on roof. Send rescue boat please.",
+        social_posts_list=all_posts[:8]
+    )
     
-    test_image_path = "fake/path/to/nonexistent_image.jpg"
-    
-    print("\n--- RUNNING AGENT 1 TEST ---")
-    output = run_agent1(test_image_path, test_transcript, test_social_posts)
-    print("\n--- AGENT 1 OUTPUT ---")
-    print(json.dumps(output, indent=2))
+    print(json.dumps(result, indent=2))

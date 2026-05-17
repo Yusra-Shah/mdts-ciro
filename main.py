@@ -141,6 +141,43 @@ def compare_endpoint():
         "comparison": comparison
     })
 
+@app.route("/stats", methods=["GET"])
+def get_stats():
+    incidents = get_all_incidents()
+    total_incidents = len(incidents)
+    
+    responding_count = 0
+    verification_count = 0
+    resources_deployed = 0
+    total_severity = 0.0
+    
+    for inc in incidents:
+        status = inc.get("status", "unknown")
+        if status == "responding":
+            responding_count += 1
+            res_assignment = inc.get("resource_assignment", {})
+            if isinstance(res_assignment, dict):
+                for count in res_assignment.values():
+                    try:
+                        resources_deployed += int(count)
+                    except (ValueError, TypeError):
+                        pass
+        elif status == "verification_required":
+            verification_count += 1
+            
+        total_severity += float(inc.get("severity_score", 0.0))
+        
+    avg_severity = round(total_severity / total_incidents, 1) if total_incidents > 0 else 0.0
+    
+    return jsonify({
+        "total_incidents": total_incidents,
+        "responding_count": responding_count,
+        "verification_count": verification_count,
+        "resources_deployed": resources_deployed,
+        "avg_severity": avg_severity,
+        "last_updated": datetime.now(timezone.utc).isoformat()
+    })
+
 @app.route("/health")
 def health():
     return jsonify({
@@ -153,28 +190,5 @@ if __name__ == "__main__":
     print("\nSYSTEM INITIALIZATION...")
     initialize_resources()
     
-    # Initial Test Run
-    print("\nRUNNING INITIAL PIPELINE TEST...")
-    try:
-        with open("mock_data/transcripts.json") as f:
-            t_data = json.load(f)
-        with open("mock_data/social_posts.json") as f:
-            s_data = json.load(f)
-            
-        # Correctly accessing the first transcript from the list
-        transcript_text = t_data[0]["text"] if isinstance(t_data, list) else t_data["t_001"]["text"]
-        
-        test_report = run_pipeline(
-            "mock_data/images/test.jpg",
-            transcript_text,
-            s_data[:8]
-        )
-        print("\nINITIAL TEST REPORT SUCCESSFUL")
-        print(json.dumps(test_report, indent=2))
-    except Exception as e:
-        print(f"\nINITIAL TEST FAILED: {e}")
-        import traceback
-        traceback.print_exc()
-        
     print("\nSTARTING FLASK API SERVER ON PORT 5000...")
     app.run(host="0.0.0.0", port=5000, debug=False)

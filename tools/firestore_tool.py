@@ -12,6 +12,14 @@ except Exception as e:
 
 def write_incident(incident_data):
     if not db: return "db_not_initialized"
+    # Ensure default fields are present
+    if "affected_population" not in incident_data or incident_data["affected_population"] is None:
+        incident_data["affected_population"] = 6500
+    if "confidence" not in incident_data or incident_data["confidence"] is None:
+        incident_data["confidence"] = 0.75
+    if "spread_risk" not in incident_data or incident_data["spread_risk"] is None:
+        incident_data["spread_risk"] = "medium"
+    
     doc_ref = db.collection("incidents").document()
     doc_ref.set(incident_data)
     return doc_ref.id

@@ -71,6 +71,9 @@ def run_agent4(agent3_output):
             "traffic_rerouting": plan["traffic_rerouting"],
             "hospital_alert": plan["hospital_alert"],
             "public_notification": plan["public_notification"],
+            "affected_population": plan.get("affected_population"),
+            "spread_risk": plan.get("spread_risk"),
+            "confidence": plan.get("confidence"),
             "before_state": before_state,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat()

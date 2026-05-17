@@ -84,7 +84,10 @@ def run_agent3(agent2_output):
             "allocation_reasoning": reasoning,
             "traffic_rerouting": rerouting,
             "hospital_alert": hospital,
-            "public_notification": notification[:80] + "..." if len(notification) > 80 else notification
+            "public_notification": notification[:80] + "..." if len(notification) > 80 else notification,
+            "affected_population": inc.get("affected_population"),
+            "spread_risk": inc.get("spread_risk"),
+            "confidence": inc.get("confidence")
         })
         
     # 3. Print Summary Table

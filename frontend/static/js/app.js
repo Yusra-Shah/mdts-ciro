@@ -1,5 +1,4 @@
-// ── MDTS CIRO — app.js ──────────────────────────────────────────
-const API_URL = ''; // Same origin requests
+const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:5000' : '';
 
 // Active filter state
 let currentIncidentFilter = 'ALL';
@@ -16,12 +15,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load main views
     refreshAllData();
 
+    // Load weather strip & alerts banner
+    loadWeatherStrip();
+    loadWeatherAlertsBanner();
+    loadMonitoringStatus();
+
     // Initial character counters
     updateCharCount('transcript-input', 'transcript-counter');
     updateCharCount('social-input', 'social-counter');
 
     // Auto refresh stats/dashboard every 25 seconds
     setInterval(refreshAllData, 25000);
+
+    // Auto refresh weather, alerts and status every 3 minutes
+    setInterval(() => {
+        loadWeatherStrip();
+        loadWeatherAlertsBanner();
+        loadMonitoringStatus();
+    }, 180000);
 });
 
 // ── Clock & Telemetry ───────────────────────────────────────────
@@ -50,6 +61,7 @@ async function refreshAllData() {
         await fetchIncidents();
         await fetchLogs();
         await fetchResources();
+        plotMapMarkers();
     } catch (e) {
         console.error("System sync failed: ", e);
     }
@@ -70,9 +82,13 @@ async function loadStats() {
         // Update dashboard comparison banner text contextually
         const compBase = document.getElementById('comp-base-summary');
         const compAgent = document.getElementById('comp-agentic-summary');
+        const benchmarkIncidents = document.getElementById('benchmark-incidents-found');
         if (stats.total_incidents > 0) {
             if (compBase) compBase.textContent = `1 Cluster Detected (All resources to heaviest source)`;
             if (compAgent) compAgent.textContent = `${stats.total_incidents} Clusters Dynamically Triaged (Proportional deployment)`;
+        }
+        if (benchmarkIncidents) {
+            benchmarkIncidents.textContent = `${stats.total_incidents} Dynamic Incidents Clustered`;
         }
     } catch (e) {
         console.error("Stats fetching error: ", e);
@@ -745,4 +761,377 @@ function onSectionSwitch(id) {
     if (id === 'incidents') fetchIncidents();
     if (id === 'logs') fetchLogs();
     if (id === 'resources') fetchResources();
+}
+
+// ── Google Maps Sleek Dark Military Theme Styling ──────────────
+const darkMilitaryMapStyle = [
+  { "elementType": "geometry", "stylers": [{ "color": "#121420" }] },
+  { "elementType": "labels.text.stroke", "stylers": [{ "color": "#121420" }] },
+  { "elementType": "labels.text.fill", "stylers": [{ "color": "#747b85" }] },
+  {
+    "featureType": "administrative",
+    "elementType": "geometry.stroke",
+    "stylers": [{ "color": "#303642" }]
+  },
+  {
+    "featureType": "administrative.country",
+    "elementType": "geometry.stroke",
+    "stylers": [{ "color": "#f59e0b" }, { "weight": 1.5 }]
+  },
+  {
+    "featureType": "administrative.province",
+    "elementType": "geometry.stroke",
+    "stylers": [{ "color": "#3f4654" }, { "weight": 0.8 }]
+  },
+  {
+    "featureType": "landscape",
+    "elementType": "geometry.fill",
+    "stylers": [{ "color": "#0c0e14" }]
+  },
+  {
+    "featureType": "poi",
+    "elementType": "geometry",
+    "stylers": [{ "color": "#161a25" }]
+  },
+  {
+    "featureType": "road",
+    "elementType": "geometry",
+    "stylers": [{ "color": "#1c2130" }]
+  },
+  {
+    "featureType": "road",
+    "elementType": "geometry.stroke",
+    "stylers": [{ "color": "#252b3d" }]
+  },
+  {
+    "featureType": "water",
+    "elementType": "geometry",
+    "stylers": [{ "color": "#07080c" }]
+  }
+];
+
+let map;
+let mapMarkers = [];
+
+function initPakistanMap() {
+    const mapElement = document.getElementById('pakistan-map');
+    if (!mapElement) return;
+
+    map = new google.maps.Map(mapElement, {
+        center: { lat: 30.3753, lng: 69.3451 },
+        zoom: 5,
+        styles: darkMilitaryMapStyle,
+        disableDefaultUI: false,
+        zoomControl: true,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true
+    });
+
+    console.log("Google Map initialized successfully on Pakistan.");
+    plotMapMarkers();
+}
+
+function getCoordinatesForLocation(locationStr) {
+    const loc = (locationStr || "").toLowerCase();
+    let center = { lat: 30.3753, lng: 69.3451 };
+    
+    if (loc.includes('karachi') || loc.includes('gulshan')) {
+        center = { lat: 24.8607, lng: 67.0011 };
+    } else if (loc.includes('lahore') || loc.includes('dha')) {
+        center = { lat: 31.5204, lng: 74.3587 };
+    } else if (loc.includes('islamabad') || loc.includes('f-6') || loc.includes('margalla') || loc.includes('g-9')) {
+        center = { lat: 33.6844, lng: 73.0479 };
+    } else if (loc.includes('hyderabad') || loc.includes('latifabad')) {
+        center = { lat: 25.3960, lng: 68.3578 };
+    } else if (loc.includes('peshawar') || loc.includes('hayatabad')) {
+        center = { lat: 34.0151, lng: 71.5249 };
+    }
+    
+    const jitterLat = (Math.random() - 0.5) * 0.08;
+    const jitterLng = (Math.random() - 0.5) * 0.08;
+    
+    return {
+        lat: center.lat + jitterLat,
+        lng: center.lng + jitterLng
+    };
+}
+
+function plotMapMarkers() {
+    if (!map) return;
+
+    mapMarkers.forEach(m => m.setMap(null));
+    mapMarkers = [];
+
+    // 1. Plot Incidents
+    if (allIncidents && allIncidents.length > 0) {
+        allIncidents.forEach(inc => {
+            const coords = getCoordinatesForLocation(inc.location);
+            const severity = parseFloat(inc.severity_score || 0);
+            
+            let markerColor = '#10B981';
+            if (severity > 7.0) {
+                markerColor = '#EF4444';
+            } else if (severity >= 4.0) {
+                markerColor = '#F59E0B';
+            }
+
+            const marker = new google.maps.Marker({
+                position: coords,
+                map: map,
+                title: inc.location,
+                icon: {
+                    path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
+                    scale: 6,
+                    fillColor: markerColor,
+                    fillOpacity: 0.9,
+                    strokeColor: '#FFFFFF',
+                    strokeWeight: 1.5
+                }
+            });
+
+            let resourcesText = "None allocated yet.";
+            if (inc.resource_assignment && Object.keys(inc.resource_assignment).length > 0) {
+                resourcesText = Object.entries(inc.resource_assignment)
+                    .map(([res, qty]) => `<span class="tag" style="background: rgba(245,158,11,0.1); color: var(--amber); border-color: rgba(245,158,11,0.2); font-size:10px; padding:2px 6px;">${res}: ${qty}</span>`)
+                    .join(" ");
+            }
+
+            const infoWindowContent = `
+                <div style="color: #FFFFFF; font-family: 'Space Grotesk', sans-serif; padding: 10px; max-width: 250px;">
+                    <div style="font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: ${markerColor}; display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-triangle-exclamation"></i> ${inc.incident_id || "INCIDENT"}
+                    </div>
+                    <div style="font-size: 12px; font-weight: 600; margin-top: 4px;">Loc: ${inc.location}</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Crisis: <strong>${inc.crisis_type || 'unknown'}</strong></div>
+                    <div style="font-size: 11px; color: var(--text-muted);">Severity: <strong>${severity.toFixed(1)}/10</strong></div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 6px;">
+                        <strong>Allocated Assets:</strong><br>
+                        <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;">${resourcesText}</div>
+                    </div>
+                </div>
+            `;
+
+            const infowindow = new google.maps.InfoWindow({
+                content: infoWindowContent
+            });
+
+            marker.addListener('click', () => {
+                infowindow.open(map, marker);
+            });
+
+            mapMarkers.push(marker);
+        });
+    }
+
+    // 2. Plot Weather pins
+    fetch(`${API_URL}/weather`)
+        .then(response => response.json())
+        .then(weatherData => {
+            const cityCoords = {
+                "Karachi": { lat: 24.8607, lng: 67.0011 },
+                "Lahore": { lat: 31.5204, lng: 74.3587 },
+                "Islamabad": { lat: 33.6844, lng: 73.0479 },
+                "Hyderabad": { lat: 25.3960, lng: 68.3578 },
+                "Peshawar": { lat: 34.0151, lng: 71.5249 }
+            };
+
+            const weatherEmojis = {
+                "Clear": "☀️",
+                "Haze": "🌫️",
+                "Rain": "🌧️",
+                "Clouds": "⛅",
+                "Partly Cloudy": "🌤️",
+                "Thunderstorm": "⛈️",
+                "Smoke": "🌫️"
+            };
+
+            weatherData.forEach(cityData => {
+                const city = cityData.city;
+                const coords = cityCoords[city];
+                if (!coords) return;
+
+                const emoji = weatherEmojis[cityData.condition] || "☀️";
+                const temp = cityData.temperature;
+
+                const marker = new google.maps.Marker({
+                    position: coords,
+                    map: map,
+                    title: `${city} Meteorological Center`,
+                    label: {
+                        text: `${emoji} ${temp}°C`,
+                        color: "#F59E0B",
+                        fontSize: "12px",
+                        fontWeight: "700"
+                    },
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        scale: 1,
+                        fillOpacity: 0,
+                        strokeOpacity: 0
+                    }
+                });
+
+                const infoWindowContent = `
+                    <div style="color: #FFFFFF; font-family: 'Space Grotesk', sans-serif; padding: 10px; max-width: 220px;">
+                        <div style="font-weight: 700; font-size: 13px; text-transform: uppercase; color: var(--blue); display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-cloud-sun-rain"></i> MET REPORT: ${city}
+                        </div>
+                        <div style="font-size: 20px; font-weight: 800; margin-top: 6px; color: var(--text-primary); font-family: 'JetBrains Mono', monospace;">
+                            ${temp}°C <span style="font-size: 14px; font-weight:500; color: var(--text-muted);">${cityData.condition}</span>
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Humidity: <strong>${cityData.humidity}%</strong></div>
+                        <div style="font-size: 11px; color: var(--text-muted);">Wind: <strong>${cityData.wind_speed} km/h (${cityData.wind_direction}°)</strong></div>
+                        <div style="font-size: 11px; color: var(--text-muted);">Flood Threat: <strong style="color: ${cityData.flood_risk === 'HIGH' ? 'var(--red)' : cityData.flood_risk === 'MEDIUM' ? 'var(--amber)' : 'var(--teal)'};">${cityData.flood_risk}</strong></div>
+                    </div>
+                `;
+
+                const infowindow = new google.maps.InfoWindow({
+                    content: infoWindowContent
+                });
+
+                marker.addListener('click', () => {
+                    infowindow.open(map, marker);
+                });
+
+                mapMarkers.push(marker);
+            });
+        })
+        .catch(err => console.error("Error plotting weather map markers: ", err));
+
+    // 3. Query /satellite-alerts and Plot Satellite hotspots
+    fetch(`${API_URL}/satellite-alerts`)
+        .then(response => response.json())
+        .then(satelliteData => {
+            satelliteData.forEach(hotspot => {
+                const coords = { lat: parseFloat(hotspot.latitude), lng: parseFloat(hotspot.longitude) };
+                
+                const marker = new google.maps.Marker({
+                    position: coords,
+                    map: map,
+                    title: `SATELLITE DETECTED: ${hotspot.region}`,
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        scale: 6,
+                        fillColor: '#EF4444',
+                        fillOpacity: 0.9,
+                        strokeColor: '#F59E0B',
+                        strokeWeight: 1.5
+                    }
+                });
+
+                const infoWindowContent = `
+                    <div style="color: #FFFFFF; font-family: 'Space Grotesk', sans-serif; padding: 10px; max-width: 220px;">
+                        <div style="font-weight: 700; font-size: 12px; text-transform: uppercase; color: var(--red); display: flex; align-items: center; gap: 6px; border-bottom: 1px solid rgba(239,68,68,0.2); padding-bottom: 6px; margin-bottom: 6px;">
+                            <i class="fa-solid fa-satellite-dish"></i> SATELLITE ANOMALY DETECTED
+                        </div>
+                        <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
+                            ${hotspot.region}
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Brightness Temp: <strong>${hotspot.bright_ti4} K</strong></div>
+                        <div style="font-size: 11px; color: var(--text-muted);">Confidence: <strong style="text-transform: capitalize;">${hotspot.confidence}</strong></div>
+                        <div style="font-size: 11px; color: var(--text-muted);">FRP (Radiative Power): <strong>${hotspot.frp} MW</strong></div>
+                        <div style="font-size: 11px; color: var(--text-muted);">Timestamp: <strong>${hotspot.acq_date} ${hotspot.acq_time} UTC</strong></div>
+                    </div>
+                `;
+
+                const infowindow = new google.maps.InfoWindow({
+                    content: infoWindowContent
+                });
+
+                marker.addListener('click', () => {
+                    infowindow.open(map, marker);
+                });
+
+                mapMarkers.push(marker);
+            });
+        })
+        .catch(err => console.error("Error plotting satellite map markers: ", err));
+}
+
+function loadWeatherStrip() {
+    const stripEl = document.getElementById('weather-strip');
+    if (!stripEl) return;
+
+    fetch(`${API_URL}/weather`)
+        .then(response => response.json())
+        .then(data => {
+            const emojis = {
+                "Clear": "☀️",
+                "Haze": "🌫️",
+                "Rain": "🌧️",
+                "Clouds": "⛅",
+                "Partly Cloudy": "🌤️",
+                "Thunderstorm": "⛈️",
+                "Smoke": "🌫️"
+            };
+
+            stripEl.innerHTML = data.map(cityInfo => {
+                const emoji = emojis[cityInfo.condition] || "☀️";
+                const riskClass = cityInfo.flood_risk.toLowerCase();
+                
+                return `
+                    <div class="weather-card">
+                        <div class="weather-city">${cityInfo.city}</div>
+                        <div class="weather-temp-row">
+                            <span class="weather-temp">${Math.round(cityInfo.temperature)}°C</span>
+                            <span class="weather-emoji">${emoji}</span>
+                        </div>
+                        <div class="weather-meta">
+                            <div><i class="fa-solid fa-droplet"></i> Humid: <strong>${cityInfo.humidity}%</strong></div>
+                            <div><i class="fa-solid fa-wind"></i> Wind: <strong>${cityInfo.wind_speed} km/h</strong></div>
+                        </div>
+                        <div class="weather-risk-badge ${riskClass}">Flood: ${cityInfo.flood_risk}</div>
+                    </div>
+                `;
+            }).join("");
+        })
+        .catch(err => {
+            console.error("Error loading weather strip: ", err);
+            stripEl.innerHTML = `<div class="empty">Unable to fetch weather feeds. Check server logs.</div>`;
+        });
+}
+
+function loadWeatherAlertsBanner() {
+    const bannerEl = document.getElementById('weather-alerts-banner');
+    const detailsEl = document.getElementById('weather-alert-details');
+    if (!bannerEl || !detailsEl) return;
+
+    fetch(`${API_URL}/weather/alerts`)
+        .then(response => response.json())
+        .then(alerts => {
+            if (alerts && alerts.length > 0) {
+                const alertMsgs = alerts.map(a => `${a.city}: ${a.message}`).join(" | ");
+                detailsEl.innerText = alertMsgs;
+                bannerEl.style.display = 'flex';
+            } else {
+                bannerEl.style.display = 'none';
+            }
+        })
+        .catch(err => console.error("Error loading weather alerts banner: ", err));
+}
+
+function dismissAlertsBanner() {
+    const bannerEl = document.getElementById('weather-alerts-banner');
+    if (bannerEl) {
+        bannerEl.style.display = 'none';
+    }
+}
+
+function loadMonitoringStatus() {
+    const lastEl = document.getElementById('monitor-last-time');
+    const nextEl = document.getElementById('monitor-next-time');
+    if (!lastEl || !nextEl) return;
+
+    fetch(`${API_URL}/monitoring-status`)
+        .then(response => response.json())
+        .then(data => {
+            if (data) {
+                const lastStr = data.last_run ? new Date(data.last_run).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "Never";
+                const nextStr = data.next_run ? new Date(data.next_run).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "--:--";
+                lastEl.textContent = lastStr;
+                nextEl.textContent = nextStr;
+            }
+        })
+        .catch(err => console.error("Error loading monitoring status: ", err));
 }

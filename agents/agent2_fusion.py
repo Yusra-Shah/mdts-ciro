@@ -101,8 +101,24 @@ def run_agent2(agent1_output):
         final_severity = round(composite_severity, 1)
         avg_confidence = round(total_confidence / signals_count, 2) if signals_count > 0 else 0.0
         
-        # Crisis Type: Most common
-        crisis_type = Counter(crisis_hints).most_common(1)[0][0] if crisis_hints else "unknown"
+        # Crisis Type dynamic resolution based on all contributing signals
+        has_flood_signal = False
+        has_fire_signal = False
+        
+        for h in crisis_hints:
+            h_lower = (h or "").lower()
+            if any(k in h_lower for k in ["flood", "water", "submerged", "rain", "storm", "drown", "leak", "pipeline"]):
+                has_flood_signal = True
+            if any(k in h_lower for k in ["fire", "flame", "smoke", "wildfire", "thermal", "anomaly", "burn"]):
+                has_fire_signal = True
+                
+        if has_flood_signal:
+            crisis_type = "flood"
+        elif has_fire_signal:
+            crisis_type = "fire"
+        else:
+            cleaned_hints = [h.lower().strip() for h in crisis_hints if h and h.lower().strip() != "unknown"]
+            crisis_type = Counter(cleaned_hints).most_common(1)[0][0] if cleaned_hints else "unknown"
         
         # Conflict handling
         conflict_detected = False

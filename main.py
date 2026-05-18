@@ -1,6 +1,10 @@
 import os
 import json
-from datetime import datetime, timezone
+import requests
+import schedule
+import threading
+import time
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -82,6 +86,384 @@ def compare_results(pipeline_result, baseline_result):
         "baseline_distributed_resources": False,
         "winner": "agentic"
     }
+
+def fetch_weather_internal():
+    api_key = os.getenv("OPENWEATHER_API_KEY")
+    cities = ["Karachi", "Lahore", "Islamabad", "Hyderabad", "Peshawar"]
+    results = []
+    
+    mock_weather = {
+        "Karachi": {
+            "temp": 38.5,
+            "humidity": 78,
+            "wind_speed": 24.0,
+            "wind_deg": 230,
+            "condition": "Haze",
+            "description": "haze",
+            "feels_like": 44.2,
+            "icon": "50d",
+            "rain_3h": 0.0
+        },
+        "Lahore": {
+            "temp": 41.0,
+            "humidity": 62,
+            "wind_speed": 18.0,
+            "wind_deg": 110,
+            "condition": "Clear",
+            "description": "clear sky",
+            "feels_like": 45.1,
+            "icon": "01d",
+            "rain_3h": 0.0
+        },
+        "Islamabad": {
+            "temp": 39.0,
+            "humidity": 75,
+            "wind_speed": 22.0,
+            "wind_deg": 160,
+            "condition": "Partly Cloudy",
+            "description": "scattered clouds",
+            "feels_like": 43.5,
+            "icon": "03d",
+            "rain_3h": 0.0
+        },
+        "Hyderabad": {
+            "temp": 42.0,
+            "humidity": 86,
+            "wind_speed": 21.0,
+            "wind_deg": 250,
+            "condition": "Rain",
+            "description": "heavy intensity rain",
+            "feels_like": 47.3,
+            "icon": "10d",
+            "rain_3h": 12.0
+        },
+        "Peshawar": {
+            "temp": 40.2,
+            "humidity": 68,
+            "wind_speed": 16.0,
+            "wind_deg": 90,
+            "condition": "Clear",
+            "description": "clear sky",
+            "feels_like": 43.0,
+            "icon": "01d",
+            "rain_3h": 0.0
+        }
+    }
+    
+    for city in cities:
+        data = None
+        if api_key and api_key.strip():
+            try:
+                url = f"http://api.openweathermap.org/data/2.5/weather?q={city},PK&appid={api_key}&units=metric"
+                resp = requests.get(url, timeout=5)
+                if resp.status_code == 200:
+                    data = resp.json()
+            except Exception as e:
+                print(f"Error fetching real weather for {city}: {e}")
+        
+        if data:
+            temp = data.get("main", {}).get("temp", 35.0)
+            humidity = data.get("main", {}).get("humidity", 60)
+            wind_ms = data.get("wind", {}).get("speed", 0)
+            wind_speed = round(wind_ms * 3.6, 1)
+            wind_direction = data.get("wind", {}).get("deg", 0)
+            
+            weather_list = data.get("weather", [])
+            condition = weather_list[0].get("main", "Clear") if weather_list else "Clear"
+            description = weather_list[0].get("description", "clear sky") if weather_list else "clear sky"
+            feels_like = data.get("main", {}).get("feels_like", temp)
+            icon_code = weather_list[0].get("icon", "01d") if weather_list else "01d"
+            
+            rain_3h = data.get("rain", {}).get("3h", 0)
+        else:
+            mock = mock_weather[city]
+            temp = mock["temp"]
+            humidity = mock["humidity"]
+            wind_speed = mock["wind_speed"]
+            wind_direction = mock["wind_deg"]
+            condition = mock["condition"]
+            description = mock["description"]
+            feels_like = mock["feels_like"]
+            icon_code = mock["icon"]
+            rain_3h = mock["rain_3h"]
+            
+        if rain_3h > 10.0 or (humidity > 85 and wind_speed > 20.0):
+            flood_risk = "HIGH"
+        elif humidity > 70:
+            flood_risk = "MEDIUM"
+        else:
+            flood_risk = "LOW"
+            
+        results.append({
+            "city": city,
+            "temperature": temp,
+            "humidity": humidity,
+            "wind_speed": wind_speed,
+            "wind_direction": wind_direction,
+            "condition": condition,
+            "description": description,
+            "feels_like": feels_like,
+            "flood_risk": flood_risk,
+            "icon_code": icon_code
+        })
+    return results
+
+def check_weather_alerts(weather_data):
+    alerts = []
+    for city_info in weather_data:
+        city = city_info["city"]
+        temp = city_info["temperature"]
+        wind = city_info["wind_speed"]
+        risk = city_info["flood_risk"]
+        
+        if risk == "HIGH":
+            alerts.append({
+                "city": city,
+                "alert_type": "FLOOD_RISK",
+                "severity": "CRITICAL",
+                "message": f"CRITICAL: Extreme flood risk detected in {city} due to high moisture saturation/heavy precipitation."
+            })
+        if temp > 42:
+            alerts.append({
+                "city": city,
+                "alert_type": "HEATWAVE",
+                "severity": "CRITICAL",
+                "message": f"CRITICAL: Extreme heatwave warning in {city}. Temperature is {temp}°C."
+            })
+        if wind > 40:
+            alerts.append({
+                "city": city,
+                "alert_type": "STORM",
+                "severity": "CRITICAL",
+                "message": f"CRITICAL: Severe storm warning in {city}. Wind speed at {wind} km/h."
+            })
+    return alerts
+
+@app.route("/weather", methods=["GET"])
+def get_weather():
+    return jsonify(fetch_weather_internal())
+
+@app.route("/weather/alerts", methods=["GET"])
+def get_weather_alerts():
+    weather_data = fetch_weather_internal()
+    return jsonify(check_weather_alerts(weather_data))
+
+def reverse_geocode_pakistan(lat, lng):
+    cities = [
+        {"name": "Karachi Municipal Region", "lat": 24.86, "lng": 67.0},
+        {"name": "Lahore Municipal Region", "lat": 31.52, "lng": 74.35},
+        {"name": "Islamabad Margalla Hills", "lat": 33.74, "lng": 73.02},
+        {"name": "Hyderabad City District", "lat": 25.39, "lng": 68.35},
+        {"name": "Peshawar Valley Territory", "lat": 34.01, "lng": 71.52},
+        {"name": "Cholistan Desert Wilds", "lat": 28.52, "lng": 70.20},
+        {"name": "Tharparkar Scrubland", "lat": 24.85, "lng": 70.18},
+        {"name": "Kirthar Mountain Range", "lat": 25.92, "lng": 67.54}
+    ]
+    
+    closest_name = "Pakistan Remote Territory"
+    min_dist = 999.0
+    for city in cities:
+        dist = (lat - city["lat"])**2 + (lng - city["lng"])**2
+        if dist < min_dist:
+            min_dist = dist
+            closest_name = city["name"]
+            
+    if min_dist < 4.0:
+        return closest_name
+    return "Rural Area, Pakistan"
+
+def fetch_satellite_alerts_internal():
+    api_key = os.getenv("NASA_FIRMS_KEY")
+    results = []
+    
+    mock_hotspots = [
+        {
+            "latitude": 33.7435,
+            "longitude": 73.0215,
+            "bright_ti4": 345.2,
+            "confidence": "high",
+            "acq_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "acq_time": "08:15",
+            "frp": 12.5,
+            "type": "wildfire"
+        },
+        {
+            "latitude": 28.5200,
+            "longitude": 70.2000,
+            "bright_ti4": 362.8,
+            "confidence": "nominal",
+            "acq_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "acq_time": "10:30",
+            "frp": 45.2,
+            "type": "thermal_anomaly"
+        },
+        {
+            "latitude": 24.8500,
+            "longitude": 70.1800,
+            "bright_ti4": 350.1,
+            "confidence": "high",
+            "acq_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "acq_time": "11:05",
+            "frp": 18.1,
+            "type": "wildfire"
+        },
+        {
+            "latitude": 25.9200,
+            "longitude": 67.5400,
+            "bright_ti4": 340.5,
+            "confidence": "low",
+            "acq_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "acq_time": "06:40",
+            "frp": 8.9,
+            "type": "thermal_anomaly"
+        }
+    ]
+    
+    if api_key and api_key.strip():
+        try:
+            url = f"https://firms.modaps.eosdis.nasa.gov/api/country/csv/{api_key}/VIIRS_SNPP_NRT/PAK/1"
+            resp = requests.get(url, timeout=6)
+            if resp.status_code == 200:
+                lines = resp.text.strip().split("\n")
+                if len(lines) > 1:
+                    headers = lines[0].split(",")
+                    for line in lines[1:]:
+                        parts = line.split(",")
+                        if len(parts) == len(headers):
+                            row = dict(zip(headers, parts))
+                            lat = float(row["latitude"])
+                            lng = float(row["longitude"])
+                            results.append({
+                                "latitude": lat,
+                                "longitude": lng,
+                                "bright_ti4": float(row.get("bright_ti4", 300.0)),
+                                "confidence": row.get("confidence", "nominal"),
+                                "acq_date": row.get("acq_date", ""),
+                                "acq_time": row.get("acq_time", ""),
+                                "frp": float(row.get("frp", 10.0)),
+                                "type": "wildfire"
+                            })
+        except Exception as e:
+            print(f"Error fetching NASA FIRMS satellite data: {e}")
+            
+    if not results:
+        results = mock_hotspots
+        
+    for item in results:
+        item["region"] = reverse_geocode_pakistan(item["latitude"], item["longitude"])
+        
+    return results
+
+@app.route("/satellite-alerts", methods=["GET"])
+def get_satellite_alerts():
+    return jsonify(fetch_satellite_alerts_internal())
+
+# Scheduler diagnostics tracking variables
+scheduler_diagnostics = {
+    "status": "active",
+    "last_run": None,
+    "next_run": None,
+    "checks_run": 0,
+    "threats_found": 0,
+    "pipelines_executed": 0
+}
+
+def auto_monitoring_scheduler_loop():
+    print("[SCHEDULER] Background monitoring loop started.")
+    time.sleep(10)
+    run_scheduler_check()
+    
+    schedule.every(30).minutes.do(run_scheduler_check)
+    
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
+
+def run_scheduler_check():
+    global scheduler_diagnostics
+    now_str = datetime.now(timezone.utc).isoformat()
+    scheduler_diagnostics["last_run"] = now_str
+    
+    next_dt = datetime.now(timezone.utc) + timedelta(minutes=30)
+    scheduler_diagnostics["next_run"] = next_dt.isoformat()
+    scheduler_diagnostics["checks_run"] += 1
+    
+    print(f"\n[SCHEDULER] Starting automated check at {now_str}...")
+    
+    try:
+        weather_alerts = []
+        try:
+            weather_data = fetch_weather_internal()
+            weather_alerts = check_weather_alerts(weather_data)
+        except Exception as ex:
+            print(f"[SCHEDULER] Error during weather hazard check: {ex}")
+            
+        satellite_alerts = []
+        try:
+            satellite_alerts = fetch_satellite_alerts_internal()
+        except Exception as ex:
+            print(f"[SCHEDULER] Error during satellite hazard check: {ex}")
+            
+        high_risk_weather = [w for w in weather_alerts if "HIGH" in w.get("message", "").upper() or "EXTREME" in w.get("message", "").upper()]
+        high_conf_satellites = [s for s in satellite_alerts if s.get("confidence", "").lower() == "high"]
+        
+        threats_found = len(high_risk_weather) + len(high_conf_satellites)
+        scheduler_diagnostics["threats_found"] += threats_found
+        
+        agent_reports = []
+        
+        if threats_found > 0:
+            print(f"[SCHEDULER] Threats detected! Running multi-agent triage pipeline. (Weather: {len(high_risk_weather)}, Satellites: {len(high_conf_satellites)})")
+            scheduler_diagnostics["pipelines_executed"] += 1
+            
+            threat_location = "Pakistan Region"
+            if high_risk_weather:
+                threat_location = high_risk_weather[0]["city"]
+            elif high_conf_satellites:
+                threat_location = high_conf_satellites[0]["region"]
+                
+            transcript = f"EMERGENCY BROADCAST: Auto-monitoring scheduler detected satellite/weather hazards in {threat_location}. Extreme levels registered. Local emergency responder fleets are requested to dispatch and establish base camps to assess damage."
+            social_posts = [
+                {
+                    "id": f"auto_s_{int(time.time())}",
+                    "text": f"Scary alerts coming in for {threat_location}. Dark clouds and heavy winds. Stay inside!",
+                    "platform": "Twitter",
+                    "timestamp": now_str,
+                    "location_mention": threat_location,
+                    "likes": 50,
+                    "verified": True
+                }
+            ]
+            
+            image_path = "mock_data/images/test.jpg"
+            report = run_pipeline(image_path, transcript, social_posts)
+            if isinstance(report, dict) and "incident_id" in report:
+                agent_reports.append(report["incident_id"])
+            else:
+                agent_reports.append("unknown_incident")
+            
+        if db:
+            try:
+                log_ref = db.collection("auto_monitoring_logs").document()
+                log_ref.set({
+                    "timestamp": now_str,
+                    "checks_run": scheduler_diagnostics["checks_run"],
+                    "threats_found": threats_found,
+                    "pipelines_executed": 1 if threats_found > 0 else 0,
+                    "incident_references": agent_reports,
+                    "raw_weather_warnings": [w["message"] for w in weather_alerts],
+                    "raw_satellite_warnings": [f"{s['region']} (Conf: {s['confidence']})" for s in satellite_alerts]
+                })
+                print("[SCHEDULER] Saved log document in Firestore auto_monitoring_logs.")
+            except Exception as fs_ex:
+                print(f"[SCHEDULER] Firestore log write failed: {fs_ex}")
+                
+    except Exception as general_ex:
+        print(f"[SCHEDULER] General scheduling error: {general_ex}")
+
+@app.route("/monitoring-status", methods=["GET"])
+def get_monitoring_status():
+    return jsonify(scheduler_diagnostics)
 
 @app.route('/')
 def index():
@@ -190,5 +572,9 @@ if __name__ == "__main__":
     print("\nSYSTEM INITIALIZATION...")
     initialize_resources()
     
+    print("\nSTARTING AUTO-MONITORING SCHEDULER...")
+    scheduler_thread = threading.Thread(target=auto_monitoring_scheduler_loop, daemon=True)
+    scheduler_thread.start()
+    
     print("\nSTARTING FLASK API SERVER ON PORT 5000...")
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)

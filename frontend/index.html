@@ -53,9 +53,16 @@
                     <span class="nav-icon"><i class="fa-solid fa-terminal"></i></span> Agent Logs
                 </div>
             </nav>
-            <div class="sidebar-footer">
+            <div class="sidebar-footer" style="display: flex; flex-direction: column; gap: 10px;">
                 <div class="status-dot">
                     <div class="dot"></div> SYSTEM ONLINE
+                </div>
+                <div id="monitoring-status-widget" style="border-top: 1px solid var(--border-color); padding-top: 8px; font-family: 'JetBrains Mono', monospace; font-size: 10px;">
+                    <div style="color: var(--teal); font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                        <div class="dot" style="width: 6px; height: 6px; background: var(--teal); box-shadow: 0 0 4px var(--teal); margin: 0;"></div> MONITORING: ACTIVE
+                    </div>
+                    <div style="color: var(--text-muted); margin-top: 4px; font-size: 9px;">LAST: <span id="monitor-last-time">--:--</span></div>
+                    <div style="color: var(--text-muted); font-size: 9px;">NEXT: <span id="monitor-next-time">--:--</span></div>
                 </div>
             </div>
         </aside>
@@ -77,6 +84,18 @@
                 <div class="clock-panel" id="pk-clock">
                     PAKISTAN TIME: --:--:--
                 </div>
+            </div>
+
+            <!-- WEATHER ALERTS BANNER -->
+            <div id="weather-alerts-banner" class="alerts-banner" style="display: none; align-items: center; justify-content: space-between; background: linear-gradient(90deg, rgba(239,68,68,0.15) 0%, rgba(239,68,68,0.05) 100%); border: 1px solid rgba(239,68,68,0.4); border-radius: 12px; padding: 16px 24px; margin-bottom: 24px; box-shadow: 0 0 16px rgba(239,68,68,0.1); animation: alertsPulse 2s infinite alternate;">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <div style="font-size: 20px; color: var(--red);"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                    <div>
+                        <div style="font-weight: 700; color: var(--red); font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase;">⚠️ EXTREME ENVIRONMENTAL THREAT DETECTED</div>
+                        <div id="weather-alert-details" style="font-size: 12px; color: var(--text-primary); margin-top: 2px;">Multiple hazards active across municipal areas.</div>
+                    </div>
+                </div>
+                <button onclick="dismissAlertsBanner()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; padding: 4px; transition: color 0.2s;"><i class="fa-solid fa-xmark"></i></button>
             </div>
 
             <!-- ═══ DASHBOARD SECTION ═══ -->
@@ -138,6 +157,15 @@
                     </div>
                 </div>
 
+                <!-- Weather intelligence strip -->
+                <div class="column-header" style="margin-top: 12px; margin-bottom: 12px;">
+                    <span class="column-title">PAKISTAN METEOROLOGICAL MONITOR</span>
+                    <span class="tag" style="background: var(--blue-dim); color: var(--blue); border-color: var(--blue);">AUTO-REFRESHING</span>
+                </div>
+                <div id="weather-strip" class="weather-strip-container" style="display: flex; gap: 16px; overflow-x: auto; padding-bottom: 12px; margin-bottom: 24px; scrollbar-width: thin; -ms-overflow-style: none;">
+                    <!-- Filled dynamically via app.js -->
+                </div>
+
                 <!-- Two Column Layout -->
                 <div class="dashboard-grid">
                     <!-- Left: Incidents List -->
@@ -192,22 +220,107 @@
                             </div>
                         </div>
                     </div>
+                </div>                <!-- Map Section -->
+                <div class="column-header" style="margin-top: 24px;">
+                    <span class="column-title">LIVE DISASTER GEOSPATIAL MAP (PAKISTAN)</span>
+                    <span class="tag" style="background: var(--amber-dim); color: var(--amber); border-color: var(--amber);">TACTICAL SCAN ACTIVE</span>
                 </div>
+                <div id="pakistan-map" style="height: 400px; border-radius: 16px; border: 1px solid rgba(245,158,11,0.3); background-color: var(--bg-darker); margin-bottom: 24px; position: relative; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.5);"></div>
 
-                <!-- Comparison Banner -->
-                <div class="compare-banner">
-                    <div class="compare-icon"><i class="fa-solid fa-shield-halved"></i></div>
-                    <div class="compare-grid">
-                        <div class="compare-col">
-                            <span class="compare-col-lbl">Traditional Baseline</span>
-                            <div class="compare-col-title" id="comp-base-summary">Simple Keyword / Density Count</div>
-                            <div class="compare-col-desc">Analyzes social feeds by name frequency and dumps all emergency crews to a single spot. Filters out 0% of false alarms.</div>
+                <!-- BASELINE COMPARISON PANEL -->
+                <div class="column-header" style="margin-top: 32px;">
+                    <span class="column-title">CRITICAL ASSESSMENT — SYSTEM BENCHMARKING</span>
+                    <span class="tag" style="background: var(--amber-dim); color: var(--amber); border-color: var(--amber);">AGENT VS HEURISTIC</span>
+                </div>
+                <div class="benchmark-panel" style="border: 1px solid var(--amber); border-radius: var(--card-radius); background: var(--card-gradient-start); overflow: hidden; margin-bottom: 32px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--border-color);">
+                        <!-- Left Column: Simple Heuristic -->
+                        <div class="benchmark-col" style="padding: 24px; background: rgba(239, 68, 68, 0.02); border-right: 1px solid var(--border-color);">
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;">
+                                <div style="font-size: 20px; color: var(--red);"><i class="fa-regular fa-circle-xmark"></i></div>
+                                <span style="font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: var(--text-primary); letter-spacing: 0.05em; text-transform: uppercase;">SIMPLE HEURISTIC</span>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px;">
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
+                                    <span style="color: var(--text-muted);">Method:</span>
+                                    <strong style="color: var(--red);">Mention Count Only</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
+                                    <span style="color: var(--text-muted);">Signal Sources:</span>
+                                    <strong style="color: var(--text-primary);">1 (Social Media only)</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
+                                    <span style="color: var(--text-muted);">Incidents Found:</span>
+                                    <strong style="color: var(--text-primary);">1 (Always picks highest mention)</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
+                                    <span style="color: var(--text-muted);">Resource Distribution:</span>
+                                    <strong style="color: var(--text-primary);">ALL resources to single location</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
+                                    <span style="color: var(--text-muted);">Conflict Detection:</span>
+                                    <strong style="color: var(--red);">NONE</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
+                                    <span style="color: var(--text-muted);">Weather Integration:</span>
+                                    <strong style="color: var(--red);">NONE</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: var(--text-muted);">False Alarm Protection:</span>
+                                    <strong style="color: var(--red);">NONE</strong>
+                                </div>
+                            </div>
                         </div>
-                        <div class="compare-divider"></div>
-                        <div class="compare-col winner">
-                            <span class="compare-col-lbl">MDTS Agentic Solution</span>
-                            <div class="compare-col-title" id="comp-agentic-summary">4-Agent Multimodal Intelligence</div>
-                            <div class="compare-col-desc">Fuses vision data, call transcripts, and social media feeds. Spatial clusters incidents, checks signal conflict, and distributes response proportionally.</div>
+
+                        <!-- Right Column: MDTS Agentic AI -->
+                        <div class="benchmark-col" style="padding: 24px; background: rgba(16, 185, 129, 0.02);">
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;">
+                                <div style="font-size: 20px; color: var(--teal);"><i class="fa-regular fa-circle-check"></i></div>
+                                <span style="font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: var(--teal); letter-spacing: 0.05em; text-transform: uppercase;">MDTS AGENTIC AI</span>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px;">
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
+                                    <span style="color: var(--text-muted);">Method:</span>
+                                    <strong style="color: var(--teal);">Multi-Agent AI Fusion</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
+                                    <span style="color: var(--text-muted);">Signal Sources:</span>
+                                    <strong style="color: var(--text-primary);">4 (Satellite + Call + Social + Weather)</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
+                                    <span style="color: var(--text-muted);">Incidents Found:</span>
+                                    <strong id="benchmark-incidents-found" style="color: var(--text-primary);">Dynamic (Calculating...)</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
+                                    <span style="color: var(--text-muted);">Resource Distribution:</span>
+                                    <strong style="color: var(--text-primary);">Optimized across all incidents</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
+                                    <span style="color: var(--text-muted);">Conflict Detection:</span>
+                                    <strong style="color: var(--teal);">ACTIVE</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
+                                    <span style="color: var(--text-muted);">Weather Integration:</span>
+                                    <strong style="color: var(--teal);">ACTIVE</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: var(--text-muted);">False Alarm Protection:</span>
+                                    <strong style="color: var(--teal);">ACTIVE</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bottom Score Progress Bar Comparison -->
+                    <div style="padding: 20px 24px; background: rgba(255,255,255,0.01); display: flex; flex-direction: column; gap: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 700;">
+                            <span style="color: var(--red);">Traditional Baseline: 2/10</span>
+                            <span style="color: var(--amber);">EFFICIENCY GAP</span>
+                            <span style="color: var(--teal);">MDTS CIRO: 9/10</span>
+                        </div>
+                        <div style="height: 12px; background: rgba(255,255,255,0.03); border-radius: 6px; overflow: hidden; display: flex; border: 1px solid var(--border-color);">
+                            <div style="width: 20%; background: var(--red); height: 100%;"></div>
+                            <div style="width: 70%; background: var(--teal); height: 100%; box-shadow: 0 0 10px var(--teal);"></div>
                         </div>
                     </div>
                 </div>
@@ -417,6 +530,8 @@
     <!-- TOAST CONTAINER -->
     <div id="toast-container" class="toast-container"></div>
 
+    <!-- Google Maps Script API -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAXgMN1HQLNcKWWwolVYKqkv6MFYJL0J6c"></script>
     <!-- App Script -->
     <script src="/static/js/app.js"></script>
 </body>

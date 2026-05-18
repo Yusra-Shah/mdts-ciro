@@ -1,5 +1,6 @@
 import os
 import json
+import requests
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 
@@ -107,6 +108,57 @@ def run_agent1(image_path, transcript_text, social_posts_list):
         "timestamp": timestamp
     })
     print(f"Agent 1: Social signal — location={social_result.get('dominant_location')} urgency={social_result.get('urgency_score')}")
+
+    # STREAM 4: Weather/Environmental Signals
+    print("Agent 1: Ingesting weather environmental signals...")
+    weather_data = []
+    try:
+        resp = requests.get("http://127.0.0.1:5000/weather", timeout=3)
+        if resp.status_code == 200:
+            weather_data = resp.json()
+    except Exception as e:
+        print(f"Agent 1: Internal GET /weather failed — {e}. Falling back to internal generator.")
+        mock_weather = {
+            "Karachi": {"temp": 38.5, "humidity": 78, "wind_speed": 24.0, "flood_risk": "MEDIUM", "condition": "Haze"},
+            "Lahore": {"temp": 41.0, "humidity": 62, "wind_speed": 18.0, "flood_risk": "LOW", "condition": "Clear"},
+            "Islamabad": {"temp": 39.0, "humidity": 75, "wind_speed": 22.0, "flood_risk": "MEDIUM", "condition": "Partly Cloudy"},
+            "Hyderabad": {"temp": 42.0, "humidity": 86, "wind_speed": 21.0, "flood_risk": "HIGH", "condition": "Rain"},
+            "Peshawar": {"temp": 40.2, "humidity": 68, "wind_speed": 16.0, "flood_risk": "LOW", "condition": "Clear"}
+        }
+        weather_data = []
+        for city, mock in mock_weather.items():
+            weather_data.append({
+                "city": city,
+                "temperature": mock["temp"],
+                "humidity": mock["humidity"],
+                "wind_speed": mock["wind_speed"],
+                "wind_direction": 200,
+                "condition": mock["condition"],
+                "description": "clear sky" if mock["condition"] == "Clear" else mock["condition"].lower(),
+                "feels_like": mock["temp"],
+                "flood_risk": mock["flood_risk"],
+                "icon_code": "01d"
+            })
+            
+    for city_info in weather_data:
+        risk = city_info.get("flood_risk", "LOW")
+        if risk in ["HIGH", "MEDIUM"]:
+            sev_hint = 8.0 if risk == "HIGH" else 5.0
+            crisis_type = "flood" if (city_info.get("condition") == "Rain" or risk == "HIGH") else "heatwave"
+            
+            signals.append({
+                "signal_id": f"sig_weather_{city_info['city'].lower()}_{timestamp}",
+                "source": "weather_api",
+                "type": "environmental",
+                "location": city_info["city"],
+                "severity_hint": sev_hint,
+                "confidence": 0.95,
+                "credibility": 0.95,
+                "crisis_type_hint": crisis_type,
+                "raw_data": city_info,
+                "timestamp": timestamp
+            })
+            print(f"Agent 1: Weather signal added — city={city_info['city']} risk={risk} severity={sev_hint} type={crisis_type}")
 
     print(f"\nAgent 1 COMPLETE — {len(signals)} signals processed")
     print(f"{'='*50}\n")

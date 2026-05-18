@@ -1407,3 +1407,110 @@ textarea:focus {
         height: 1px;
     }
 }
+
+/* Weather Intelligence Strip styling */
+.weather-card {
+    flex: 0 0 200px;
+    background: var(--card-gradient-start);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+.weather-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(245, 158, 11, 0.4);
+}
+
+.weather-city {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--text-primary);
+    text-transform: uppercase;
+}
+
+.weather-temp-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 4px;
+}
+
+.weather-temp {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.weather-emoji {
+    font-size: 32px;
+}
+
+.weather-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.weather-meta i {
+    width: 14px;
+    margin-right: 4px;
+}
+
+.weather-risk-badge {
+    align-self: flex-start;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-top: 4px;
+}
+
+.weather-risk-badge.high {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--red);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.weather-risk-badge.medium {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--amber);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.weather-risk-badge.low {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--teal);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+/* Animations */
+@keyframes alertsPulse {
+    0% {
+        box-shadow: 0 0 8px rgba(239,68,68,0.15);
+        border-color: rgba(239,68,68,0.4);
+    }
+    100% {
+        box-shadow: 0 0 20px rgba(239,68,68,0.35);
+        border-color: rgba(239,68,68,0.8);
+    }
+}
+
+@keyframes liveBlink {
+    0% { opacity: 0.3; }
+    100% { opacity: 1.0; }
+}

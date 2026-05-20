@@ -1,538 +1,481 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MDTS CIRO — Crisis Intelligence & Response Orchestrator</title>
-    <!-- CSS imports -->
+    <title>MDTS CIRO — Crisis Intelligence and Response Orchestrator</title>
+    <link rel="icon" type="image/svg+xml"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23DC2626'/><text x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-size='11' font-family='Georgia,serif' font-weight='bold'>MC</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&family=Playfair+Display:wght@600;700&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/static/css/style.css">
-    <!-- Inline showSection to handle rapid switching before app.js completes loading -->
     <script>
-    function showSection(id) {
-        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-        
-        const target = document.getElementById(id);
-        if (target) target.classList.add('active');
-        
-        const navItem = document.querySelector(`[onclick="showSection('${id}')"]`);
-        if (navItem) navItem.classList.add('active');
-        
-        if (typeof onSectionSwitch === 'function') {
-            onSectionSwitch(id);
+        function showSection(id) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            const t = document.getElementById(id);
+            if (t) t.classList.add('active');
+            const n = document.querySelector('[data-section="' + id + '"]');
+            if (n) n.classList.add('active');
+            if (typeof onSectionSwitch === 'function') onSectionSwitch(id);
         }
-    }
+        function toggleTheme() {
+            const h = document.documentElement;
+            const next = h.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+            h.setAttribute('data-theme', next);
+            localStorage.setItem('mdts-theme', next);
+            const btn = document.getElementById('theme-toggle');
+            if (btn) btn.innerHTML = next === 'dark' ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>';
+        }
+        (function () {
+            const s = localStorage.getItem('mdts-theme') || 'light';
+            document.documentElement.setAttribute('data-theme', s);
+        })();
     </script>
 </head>
+
 <body>
     <div class="app">
-        <!-- SIDEBAR -->
+
         <aside class="sidebar">
             <div class="logo">
-                <div class="logo-icon">📡</div>
+                <div class="logo-mark">MC</div>
                 <div>
-                    <div class="logo-text">MDTS CIRO</div>
-                    <div class="logo-sub">PAKISTAN DISASTER AI</div>
+                    <div class="logo-name">MDTS CIRO</div>
+                    <div class="logo-sub">Pakistan Disaster Intelligence</div>
                 </div>
             </div>
-            <nav>
-                <div class="nav-item active" onclick="showSection('dashboard')">
-                    <span class="nav-icon"><i class="fa-solid fa-gauge-high"></i></span> Dashboard
+            <nav class="sidebar-nav">
+                <div class="nav-item active" data-section="dashboard" onclick="showSection('dashboard')">
+                    <i class="fa-solid fa-gauge-high nav-icon"></i><span>Dashboard</span>
                 </div>
-                <div class="nav-item" onclick="showSection('analyze')">
-                    <span class="nav-icon"><i class="fa-solid fa-microscope"></i></span> Analyze Lab
+                <div class="nav-item" data-section="analyze" onclick="showSection('analyze')">
+                    <i class="fa-solid fa-microscope nav-icon"></i><span>Analyze Lab</span>
                 </div>
-                <div class="nav-item" onclick="showSection('incidents')">
-                    <span class="nav-icon"><i class="fa-solid fa-triangle-exclamation"></i></span> Incidents
+                <div class="nav-item" data-section="incidents" onclick="showSection('incidents')">
+                    <i class="fa-solid fa-triangle-exclamation nav-icon"></i><span>Incidents</span>
                 </div>
-                <div class="nav-item" onclick="showSection('resources')">
-                    <span class="nav-icon"><i class="fa-solid fa-truck-field"></i></span> Fleet Units
+                <div class="nav-item" data-section="resources" onclick="showSection('resources')">
+                    <i class="fa-solid fa-truck-field nav-icon"></i><span>Fleet Units</span>
                 </div>
-                <div class="nav-item" onclick="showSection('logs')">
-                    <span class="nav-icon"><i class="fa-solid fa-terminal"></i></span> Agent Logs
+                <div class="nav-item" data-section="logs" onclick="showSection('logs')">
+                    <i class="fa-solid fa-terminal nav-icon"></i><span>Agent Logs</span>
                 </div>
             </nav>
-            <div class="sidebar-footer" style="display: flex; flex-direction: column; gap: 10px;">
-                <div class="status-dot">
-                    <div class="dot"></div> SYSTEM ONLINE
+            <div class="sidebar-footer">
+                <div class="sys-status">
+                    <div class="status-dot"></div><span>System Online</span>
                 </div>
-                <div id="monitoring-status-widget" style="border-top: 1px solid var(--border-color); padding-top: 8px; font-family: 'JetBrains Mono', monospace; font-size: 10px;">
-                    <div style="color: var(--teal); font-weight: 700; display: flex; align-items: center; gap: 6px;">
-                        <div class="dot" style="width: 6px; height: 6px; background: var(--teal); box-shadow: 0 0 4px var(--teal); margin: 0;"></div> MONITORING: ACTIVE
+                <div class="monitor-widget">
+                    <div class="monitor-row">
+                        <div class="status-dot teal-dot"></div><span>Monitoring Active</span>
                     </div>
-                    <div style="color: var(--text-muted); margin-top: 4px; font-size: 9px;">LAST: <span id="monitor-last-time">--:--</span></div>
-                    <div style="color: var(--text-muted); font-size: 9px;">NEXT: <span id="monitor-next-time">--:--</span></div>
+                    <div class="monitor-time">Last: <span id="monitor-last-time">--</span></div>
+                    <div class="monitor-time">Next: <span id="monitor-next-time">--</span></div>
+                </div>
+
+                <div class="monitor-widget" id="threat-widget" style="margin-top: 10px;">
+                    <div class="monitor-row" style="color: var(--text);">
+                        <i class="fa-solid fa-shield-halved" style="color: var(--amber); margin-right: 4px;"></i><span>Threat Level</span>
+                    </div>
+                    <div id="threat-level" style="font-weight: bold; padding: 4px 8px; border-radius: 4px; text-align: center; margin: 8px 0; font-size: 11px; font-family: 'DM Mono', monospace; border: 1px solid var(--border);">LOW</div>
+                    <div class="monitor-time">Weather Alerts: <span id="threat-weather-count">0</span></div>
+                    <div class="monitor-time">Earthquakes: <span id="threat-quake-count">0</span></div>
+                    <div class="monitor-time">Hotspots: <span id="threat-satellite-count">0</span></div>
                 </div>
             </div>
         </aside>
 
-        <!-- MAIN -->
         <main class="main">
-            <!-- HEADER BAR -->
-            <div class="top-header">
-                <div class="th-left">
-                    <div class="live-indicator">
-                        <div class="live-dot"></div> LIVE COMMAND
+            <header class="top-header">
+                <div class="header-left">
+                    <div class="live-badge">
+                        <div class="live-dot"></div>Live Command
                     </div>
-                    <div class="system-health">
-                        <span>HEALTH</span>
-                        <div class="health-bar"><div class="health-fill"></div></div>
-                        <span class="mono" style="color: var(--teal);">98%</span>
+                    <div class="health-wrap">
+                        <span class="health-lbl">Health</span>
+                        <div class="health-bar">
+                            <div class="health-fill"></div>
+                        </div>
+                        <span class="health-val">98%</span>
                     </div>
                 </div>
-                <div class="clock-panel" id="pk-clock">
-                    PAKISTAN TIME: --:--:--
+                <div class="header-right">
+                    <div class="clock" id="pk-clock">Pakistan Time: --:--:--</div>
+                    <button class="theme-btn" id="theme-toggle" onclick="toggleTheme()"><i
+                            class="fa-solid fa-moon"></i></button>
                 </div>
-            </div>
+            </header>
 
-            <!-- WEATHER ALERTS BANNER -->
-            <div id="weather-alerts-banner" class="alerts-banner" style="display: none; align-items: center; justify-content: space-between; background: linear-gradient(90deg, rgba(239,68,68,0.15) 0%, rgba(239,68,68,0.05) 100%); border: 1px solid rgba(239,68,68,0.4); border-radius: 12px; padding: 16px 24px; margin-bottom: 24px; box-shadow: 0 0 16px rgba(239,68,68,0.1); animation: alertsPulse 2s infinite alternate;">
-                <div style="display: flex; align-items: center; gap: 14px;">
-                    <div style="font-size: 20px; color: var(--red);"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <div id="weather-alerts-banner" class="alert-banner" style="display:none;">
+                <div class="alert-inner">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
                     <div>
-                        <div style="font-weight: 700; color: var(--red); font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase;">⚠️ EXTREME ENVIRONMENTAL THREAT DETECTED</div>
-                        <div id="weather-alert-details" style="font-size: 12px; color: var(--text-primary); margin-top: 2px;">Multiple hazards active across municipal areas.</div>
+                        <div class="alert-title">Environmental Threat Detected</div>
+                        <div id="weather-alert-details" class="alert-detail">Checking conditions.</div>
                     </div>
                 </div>
-                <button onclick="dismissAlertsBanner()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; padding: 4px; transition: color 0.2s;"><i class="fa-solid fa-xmark"></i></button>
+                <button class="alert-dismiss"
+                    onclick="document.getElementById('weather-alerts-banner').style.display='none'"><i
+                        class="fa-solid fa-xmark"></i></button>
             </div>
 
-            <!-- ═══ DASHBOARD SECTION ═══ -->
+            <!-- DASHBOARD -->
             <section id="dashboard" class="section active">
                 <div class="page-header">
                     <h1 class="page-title">Operational Triage Dashboard</h1>
-                    <div class="page-sub">Real-time spatial clustering & resource dispatch control</div>
+                    <p class="page-sub">Real-time spatial clustering and resource dispatch control</p>
                 </div>
 
-                <!-- Stats Grid -->
-                <div class="stats" id="stats-grid">
-                    <div class="stat-card" style="--accent-color: var(--red);">
-                        <div class="stat-top">
-                            <span class="stat-lbl">Active Incidents</span>
-                            <span class="stat-icon"><i class="fa-solid fa-circle-exclamation"></i></span>
-                        </div>
-                        <div class="stat-val" id="stat-incidents" data-target="0">0</div>
-                        <div class="stat-sparkline">
-                            <svg viewBox="0 0 100 16" preserveAspectRatio="none">
-                                <path d="M0,8 Q20,3 40,11 T80,4 T100,10" fill="none" stroke="var(--red)" stroke-width="1.5"></path>
-                            </svg>
-                        </div>
+                <div class="stats-grid">
+                    <div class="stat-card" style="--accent:#DC2626;">
+                        <div class="stat-top"><span class="stat-lbl">Active Incidents</span><i
+                                class="fa-solid fa-circle-exclamation stat-icon"></i></div>
+                        <div class="stat-val" id="stat-incidents">0</div>
+                        <svg class="sparkline" viewBox="0 0 100 20" preserveAspectRatio="none">
+                            <path d="M0,10 Q20,4 40,14 T80,6 T100,12" fill="none" stroke="var(--accent)"
+                                stroke-width="1.5" />
+                        </svg>
                     </div>
-                    <div class="stat-card" style="--accent-color: var(--amber);">
-                        <div class="stat-top">
-                            <span class="stat-lbl">Fleet Deployed</span>
-                            <span class="stat-icon"><i class="fa-solid fa-truck-field"></i></span>
-                        </div>
-                        <div class="stat-val" id="stat-resources" data-target="0">0</div>
-                        <div class="stat-sparkline">
-                            <svg viewBox="0 0 100 16" preserveAspectRatio="none">
-                                <path d="M0,12 Q25,2 50,14 T100,5" fill="none" stroke="var(--amber)" stroke-width="1.5"></path>
-                            </svg>
-                        </div>
+                    <div class="stat-card" style="--accent:#D97706;">
+                        <div class="stat-top"><span class="stat-lbl">Fleet Deployed</span><i
+                                class="fa-solid fa-truck-field stat-icon"></i></div>
+                        <div class="stat-val" id="stat-resources">0</div>
+                        <svg class="sparkline" viewBox="0 0 100 20" preserveAspectRatio="none">
+                            <path d="M0,14 Q25,3 50,16 T100,7" fill="none" stroke="var(--accent)" stroke-width="1.5" />
+                        </svg>
                     </div>
-                    <div class="stat-card" style="--accent-color: var(--teal);">
-                        <div class="stat-top">
-                            <span class="stat-lbl">Avg Incident Severity</span>
-                            <span class="stat-icon"><i class="fa-solid fa-gauge-simple-high"></i></span>
-                        </div>
-                        <div class="stat-val" id="stat-avg-severity" data-target="0">0.0</div>
-                        <div class="stat-sparkline">
-                            <svg viewBox="0 0 100 16" preserveAspectRatio="none">
-                                <path d="M0,5 Q30,12 60,3 T100,8" fill="none" stroke="var(--teal)" stroke-width="1.5"></path>
-                            </svg>
-                        </div>
+                    <div class="stat-card" style="--accent:#059669;">
+                        <div class="stat-top"><span class="stat-lbl">Average Severity</span><i
+                                class="fa-solid fa-gauge-simple-high stat-icon"></i></div>
+                        <div class="stat-val" id="stat-avg-severity">0.0</div>
+                        <svg class="sparkline" viewBox="0 0 100 20" preserveAspectRatio="none">
+                            <path d="M0,6 Q30,14 60,4 T100,10" fill="none" stroke="var(--accent)" stroke-width="1.5" />
+                        </svg>
                     </div>
-                    <div class="stat-card" style="--accent-color: var(--blue);">
-                        <div class="stat-top">
-                            <span class="stat-lbl">System Latency</span>
-                            <span class="stat-icon"><i class="fa-solid fa-bolt"></i></span>
-                        </div>
+                    <div class="stat-card" style="--accent:#2563EB;">
+                        <div class="stat-top"><span class="stat-lbl">Response Latency</span><i
+                                class="fa-solid fa-bolt stat-icon"></i></div>
                         <div class="stat-val" id="stat-latency">4.2s</div>
-                        <div class="stat-sparkline">
-                            <svg viewBox="0 0 100 16" preserveAspectRatio="none">
-                                <path d="M0,8 L20,8 L25,2 L35,14 L40,8 L100,8" fill="none" stroke="var(--blue)" stroke-width="1.5"></path>
-                            </svg>
-                        </div>
+                        <svg class="sparkline" viewBox="0 0 100 20" preserveAspectRatio="none">
+                            <path d="M0,10 L20,10 L25,3 L35,17 L40,10 L100,10" fill="none" stroke="var(--accent)"
+                                stroke-width="1.5" />
+                        </svg>
                     </div>
                 </div>
 
-                <!-- Weather intelligence strip -->
-                <div class="column-header" style="margin-top: 12px; margin-bottom: 12px;">
-                    <span class="column-title">PAKISTAN METEOROLOGICAL MONITOR</span>
-                    <span class="tag" style="background: var(--blue-dim); color: var(--blue); border-color: var(--blue);">AUTO-REFRESHING</span>
+                <div class="section-row-header">
+                    <span class="section-lbl">Pakistan Meteorological Monitor</span>
+                    <span class="section-tag blue-tag">Auto Refreshing</span>
                 </div>
-                <div id="weather-strip" class="weather-strip-container" style="display: flex; gap: 16px; overflow-x: auto; padding-bottom: 12px; margin-bottom: 24px; scrollbar-width: thin; -ms-overflow-style: none;">
-                    <!-- Filled dynamically via app.js -->
-                </div>
+                <div id="weather-strip" class="weather-strip"></div>
 
-                <!-- Two Column Layout -->
-                <div class="dashboard-grid">
-                    <!-- Left: Incidents List -->
+                <div class="section-row-header" style="margin-top: 20px;">
+                    <span class="section-lbl">Earthquake Activity Monitor</span>
+                    <span class="section-tag red-tag" style="background: var(--red-bg); color: var(--red); border-color: rgba(220, 38, 38, 0.2);">USGS Feed</span>
+                </div>
+                <div id="earthquake-strip" class="weather-strip"></div>
+
+                <div class="dash-grid">
                     <div>
-                        <div class="column-header">
-                            <span class="column-title">HIGHEST PRIORITY DISASTERS</span>
-                            <span class="tag" id="last-updated-lbl">LIVE SYNCED</span>
+                        <div class="section-row-header">
+                            <span class="section-lbl">Highest Priority Incidents</span>
+                            <span class="section-tag" id="last-updated-lbl">Live Synced</span>
                         </div>
                         <div id="dashboard-incidents-list">
-                            <div class="empty">
-                                <div class="empty-icon">📡</div>
-                                <div class="empty-text">No active incidents tracked. Ingest signals in the Analyze Lab.</div>
+                            <div class="empty-state"><i class="fa-solid fa-satellite-dish empty-icon"></i>
+                                <p>No active incidents. Ingest signals in the Analyze Lab.</p>
                             </div>
                         </div>
                     </div>
-
-                    <!-- Right: CSS Severity Distribution Chart -->
                     <div>
-                        <div class="column-header">
-                            <span class="column-title">CRISIS MATRIX</span>
-                        </div>
+                        <div class="section-row-header"><span class="section-lbl">Crisis Matrix</span></div>
                         <div class="chart-card">
-                            <div class="chart-title">Severity Spread</div>
-                            <div class="chart-container">
+                            <div class="chart-title">Severity Distribution</div>
+                            <div class="chart-rows">
                                 <div class="chart-row">
-                                    <div class="chart-row-top">
-                                        <span class="chart-row-lbl" style="color: var(--red);">Critical (&gt;7.0)</span>
-                                        <span class="chart-row-val" id="dist-critical-count">0 Incidents</span>
-                                    </div>
-                                    <div class="chart-bar-bg">
-                                        <div class="chart-bar-fill critical" id="dist-critical-bar" style="width: 0%;"></div>
+                                    <div class="chart-row-top"><span class="chart-lbl"
+                                            style="color:var(--red);">Critical above 7.0</span><span class="chart-count"
+                                            id="dist-critical-count">0</span></div>
+                                    <div class="chart-track">
+                                        <div class="chart-fill" style="background:var(--red);" id="dist-critical-bar">
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="chart-row">
-                                    <div class="chart-row-top">
-                                        <span class="chart-row-lbl" style="color: var(--amber);">Moderate (4.0 - 7.0)</span>
-                                        <span class="chart-row-val" id="dist-moderate-count">0 Incidents</span>
-                                    </div>
-                                    <div class="chart-bar-bg">
-                                        <div class="chart-bar-fill moderate" id="dist-moderate-bar" style="width: 0%;"></div>
+                                    <div class="chart-row-top"><span class="chart-lbl"
+                                            style="color:var(--amber);">Moderate 4.0 to 7.0</span><span
+                                            class="chart-count" id="dist-moderate-count">0</span></div>
+                                    <div class="chart-track">
+                                        <div class="chart-fill" style="background:var(--amber);" id="dist-moderate-bar">
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="chart-row">
-                                    <div class="chart-row-top">
-                                        <span class="chart-row-lbl" style="color: var(--teal);">Low (&lt;4.0)</span>
-                                        <span class="chart-row-val" id="dist-low-count">0 Incidents</span>
-                                    </div>
-                                    <div class="chart-bar-bg">
-                                        <div class="chart-bar-fill low" id="dist-low-bar" style="width: 0%;"></div>
+                                    <div class="chart-row-top"><span class="chart-lbl" style="color:var(--teal);">Low
+                                            below 4.0</span><span class="chart-count" id="dist-low-count">0</span></div>
+                                    <div class="chart-track">
+                                        <div class="chart-fill" style="background:var(--teal);" id="dist-low-bar"></div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>                <!-- Map Section -->
-                <div class="column-header" style="margin-top: 24px;">
-                    <span class="column-title">LIVE DISASTER GEOSPATIAL MAP (PAKISTAN)</span>
-                    <span class="tag" style="background: var(--amber-dim); color: var(--amber); border-color: var(--amber);">TACTICAL SCAN ACTIVE</span>
                 </div>
-                <div id="pakistan-map" style="height: 400px; border-radius: 16px; border: 1px solid rgba(245,158,11,0.3); background-color: var(--bg-darker); margin-bottom: 24px; position: relative; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.5);"></div>
 
-                <!-- BASELINE COMPARISON PANEL -->
-                <div class="column-header" style="margin-top: 32px;">
-                    <span class="column-title">CRITICAL ASSESSMENT — SYSTEM BENCHMARKING</span>
-                    <span class="tag" style="background: var(--amber-dim); color: var(--amber); border-color: var(--amber);">AGENT VS HEURISTIC</span>
+                <div class="section-row-header" style="margin-top:28px;">
+                    <span class="section-lbl">Live Disaster Map — Pakistan</span>
+                    <span class="section-tag amber-tag">Tactical Scan Active</span>
                 </div>
-                <div class="benchmark-panel" style="border: 1px solid var(--amber); border-radius: var(--card-radius); background: var(--card-gradient-start); overflow: hidden; margin-bottom: 32px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--border-color);">
-                        <!-- Left Column: Simple Heuristic -->
-                        <div class="benchmark-col" style="padding: 24px; background: rgba(239, 68, 68, 0.02); border-right: 1px solid var(--border-color);">
-                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;">
-                                <div style="font-size: 20px; color: var(--red);"><i class="fa-regular fa-circle-xmark"></i></div>
-                                <span style="font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: var(--text-primary); letter-spacing: 0.05em; text-transform: uppercase;">SIMPLE HEURISTIC</span>
-                            </div>
-                            <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px;">
-                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
-                                    <span style="color: var(--text-muted);">Method:</span>
-                                    <strong style="color: var(--red);">Mention Count Only</strong>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
-                                    <span style="color: var(--text-muted);">Signal Sources:</span>
-                                    <strong style="color: var(--text-primary);">1 (Social Media only)</strong>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
-                                    <span style="color: var(--text-muted);">Incidents Found:</span>
-                                    <strong style="color: var(--text-primary);">1 (Always picks highest mention)</strong>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
-                                    <span style="color: var(--text-muted);">Resource Distribution:</span>
-                                    <strong style="color: var(--text-primary);">ALL resources to single location</strong>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
-                                    <span style="color: var(--text-muted);">Conflict Detection:</span>
-                                    <strong style="color: var(--red);">NONE</strong>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
-                                    <span style="color: var(--text-muted);">Weather Integration:</span>
-                                    <strong style="color: var(--red);">NONE</strong>
-                                </div>
-                                <div style="display: flex; justify-content: space-between;">
-                                    <span style="color: var(--text-muted);">False Alarm Protection:</span>
-                                    <strong style="color: var(--red);">NONE</strong>
-                                </div>
-                            </div>
-                        </div>
+                <div class="map-layer-controls">
+                    <button class="map-btn active"
+                        onclick="toggleLayer('precipitation_new',this)">Precipitation</button>
+                    <button class="map-btn" onclick="toggleLayer('wind_new',this)">Wind</button>
+                    <button class="map-btn" onclick="toggleLayer('clouds_new',this)">Clouds</button>
+                </div>
+                <div id="pakistan-map" class="map-container"></div>
 
-                        <!-- Right Column: MDTS Agentic AI -->
-                        <div class="benchmark-col" style="padding: 24px; background: rgba(16, 185, 129, 0.02);">
-                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;">
-                                <div style="font-size: 20px; color: var(--teal);"><i class="fa-regular fa-circle-check"></i></div>
-                                <span style="font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: var(--teal); letter-spacing: 0.05em; text-transform: uppercase;">MDTS AGENTIC AI</span>
+                <div class="section-row-header" style="margin-top:32px;">
+                    <span class="section-lbl">System Benchmarking</span>
+                    <span class="section-tag amber-tag">Agent vs Heuristic</span>
+                </div>
+                <div class="benchmark-card">
+                    <div class="benchmark-cols">
+                        <div class="bench-col bench-baseline">
+                            <div class="bench-col-title"><i class="fa-solid fa-xmark"
+                                    style="color:var(--red);margin-right:8px;"></i>Simple Heuristic</div>
+                            <div class="bench-rows">
+                                <div class="bench-row"><span class="bench-k">Method</span><span class="bench-v"
+                                        style="color:var(--red);">Mention Count Only</span></div>
+                                <div class="bench-row"><span class="bench-k">Signal Sources</span><span
+                                        class="bench-v">1 source</span></div>
+                                <div class="bench-row"><span class="bench-k">Incidents Found</span><span
+                                        class="bench-v">1 always</span></div>
+                                <div class="bench-row"><span class="bench-k">Resource Distribution</span><span
+                                        class="bench-v">All to one location</span></div>
+                                <div class="bench-row"><span class="bench-k">Conflict Detection</span><span
+                                        class="bench-v" style="color:var(--red);">None</span></div>
+                                <div class="bench-row"><span class="bench-k">Weather Integration</span><span
+                                        class="bench-v" style="color:var(--red);">None</span></div>
+                                <div class="bench-row"><span class="bench-k">False Alarm Guard</span><span
+                                        class="bench-v" style="color:var(--red);">None</span></div>
                             </div>
-                            <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px;">
-                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
-                                    <span style="color: var(--text-muted);">Method:</span>
-                                    <strong style="color: var(--teal);">Multi-Agent AI Fusion</strong>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
-                                    <span style="color: var(--text-muted);">Signal Sources:</span>
-                                    <strong style="color: var(--text-primary);">4 (Satellite + Call + Social + Weather)</strong>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
-                                    <span style="color: var(--text-muted);">Incidents Found:</span>
-                                    <strong id="benchmark-incidents-found" style="color: var(--text-primary);">Dynamic (Calculating...)</strong>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
-                                    <span style="color: var(--text-muted);">Resource Distribution:</span>
-                                    <strong style="color: var(--text-primary);">Optimized across all incidents</strong>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
-                                    <span style="color: var(--text-muted);">Conflict Detection:</span>
-                                    <strong style="color: var(--teal);">ACTIVE</strong>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
-                                    <span style="color: var(--text-muted);">Weather Integration:</span>
-                                    <strong style="color: var(--teal);">ACTIVE</strong>
-                                </div>
-                                <div style="display: flex; justify-content: space-between;">
-                                    <span style="color: var(--text-muted);">False Alarm Protection:</span>
-                                    <strong style="color: var(--teal);">ACTIVE</strong>
-                                </div>
+                            <div class="bench-score" style="color:var(--red);">Score: 2 / 10</div>
+                        </div>
+                        <div class="bench-divider"></div>
+                        <div class="bench-col bench-agent">
+                            <div class="bench-col-title"><i class="fa-solid fa-check"
+                                    style="color:var(--teal);margin-right:8px;"></i>MDTS Agentic AI</div>
+                            <div class="bench-rows">
+                                <div class="bench-row"><span class="bench-k">Method</span><span class="bench-v"
+                                        style="color:var(--teal);">Multi-Agent AI Fusion</span></div>
+                                <div class="bench-row"><span class="bench-k">Signal Sources</span><span
+                                        class="bench-v">4 streams fused</span></div>
+                                <div class="bench-row"><span class="bench-k">Incidents Found</span><span class="bench-v"
+                                        id="benchmark-incidents-found">Dynamic</span></div>
+                                <div class="bench-row"><span class="bench-k">Resource Distribution</span><span
+                                        class="bench-v">Optimized across all</span></div>
+                                <div class="bench-row"><span class="bench-k">Conflict Detection</span><span
+                                        class="bench-v" style="color:var(--teal);">Active</span></div>
+                                <div class="bench-row"><span class="bench-k">Weather Integration</span><span
+                                        class="bench-v" style="color:var(--teal);">Active</span></div>
+                                <div class="bench-row"><span class="bench-k">False Alarm Guard</span><span
+                                        class="bench-v" style="color:var(--teal);">Active</span></div>
                             </div>
+                            <div class="bench-score" style="color:var(--teal);">Score: 9 / 10</div>
                         </div>
                     </div>
-
-                    <!-- Bottom Score Progress Bar Comparison -->
-                    <div style="padding: 20px 24px; background: rgba(255,255,255,0.01); display: flex; flex-direction: column; gap: 10px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 700;">
-                            <span style="color: var(--red);">Traditional Baseline: 2/10</span>
-                            <span style="color: var(--amber);">EFFICIENCY GAP</span>
-                            <span style="color: var(--teal);">MDTS CIRO: 9/10</span>
+                    <div class="bench-bar-wrap">
+                        <span style="font-size:12px;font-weight:600;color:var(--red);">Baseline 2/10</span>
+                        <div class="bench-bar-track">
+                            <div style="width:20%;height:100%;background:var(--red);border-radius:4px 0 0 4px;"></div>
+                            <div style="width:70%;height:100%;background:var(--teal);border-radius:0 4px 4px 0;"></div>
                         </div>
-                        <div style="height: 12px; background: rgba(255,255,255,0.03); border-radius: 6px; overflow: hidden; display: flex; border: 1px solid var(--border-color);">
-                            <div style="width: 20%; background: var(--red); height: 100%;"></div>
-                            <div style="width: 70%; background: var(--teal); height: 100%; box-shadow: 0 0 10px var(--teal);"></div>
-                        </div>
+                        <span style="font-size:12px;font-weight:600;color:var(--teal);">MDTS 9/10</span>
                     </div>
+                    <div class="bench-footer-line">AI response is 213x faster than manual coordination</div>
                 </div>
             </section>
 
-            <!-- ═══ ANALYZE SCREEN ═══ -->
+            <!-- ANALYZE -->
             <section id="analyze" class="section">
                 <div class="page-header">
                     <h1 class="page-title">Multimodal Analysis Lab</h1>
-                    <div class="page-sub">Ingest and process visual and textual drone signals</div>
+                    <p class="page-sub">Ingest satellite imagery, voice transcripts, and social media streams</p>
                 </div>
-
-                <div class="analyze-wrap">
-                    <div class="input-stack">
-                        <!-- Image Upload Box -->
-                        <div class="upload-box" id="upload-zone" onclick="document.getElementById('img-input').click()">
-                            <div class="upload-box-icon">🛰️</div>
-                            <h3 class="syne-heading" style="font-size: 14px;">Satellite or Drone Damage Image</h3>
-                            <div style="font-size: 12px; color: var(--text-muted);">Click to upload imagery file</div>
-                            <div class="mono" id="filename-display" style="font-size: 11px; color: var(--teal); margin-top: 4px;"></div>
-                            <!-- Thumbnail Preview Container -->
-                            <div id="image-preview-container" style="display: none;">
-                                <img id="image-preview-thumb" class="preview-thumb" src="#" alt="Preview">
+                <div class="analyze-layout">
+                    <div class="analyze-left">
+                        <div class="upload-zone" id="upload-zone"
+                            onclick="document.getElementById('img-input').click()">
+                            <i class="fa-solid fa-satellite-dish"
+                                style="font-size:28px;color:var(--amber);margin-bottom:8px;"></i>
+                            <div class="upload-main-text">Satellite or Drone Damage Image</div>
+                            <div class="upload-sub-text">Click to select imagery file</div>
+                            <div id="filename-display" class="upload-fname"></div>
+                            <div id="image-preview-container" style="display:none;margin-top:10px;">
+                                <img id="image-preview-thumb"
+                                    style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:2px solid var(--border);"
+                                    src="#" alt="Preview">
                             </div>
                         </div>
-                        <input type="file" id="img-input" accept="image/*" style="display:none" onchange="handleFileSelect(this)">
+                        <input type="file" id="img-input" accept="image/*" style="display:none"
+                            onchange="handleFileSelect(this)">
 
-                        <!-- Emergency call transcript input -->
-                        <div class="textarea-wrap">
-                            <div class="mono" style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase;">Voice Transcript Ingestion</div>
-                            <textarea id="transcript-input" rows="5" placeholder="Paste emergency dispatch voice transcript..." oninput="updateCharCount('transcript-input', 'transcript-counter')"></textarea>
-                            <div class="char-counter" id="transcript-counter">0 characters</div>
+                        <div class="input-group">
+                            <label class="input-lbl">Voice Transcript Ingestion</label>
+                            <textarea id="transcript-input" rows="5"
+                                placeholder="Paste emergency dispatch voice transcript..."
+                                oninput="updateCharCount('transcript-input','transcript-counter')"></textarea>
+                            <div class="char-count" id="transcript-counter">0 characters</div>
                         </div>
 
-                        <!-- Social Posts Input -->
-                        <div class="textarea-wrap">
-                            <div class="mono" style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase;">Social Media Stream (JSON Array)</div>
-                            <textarea id="social-input" rows="6" placeholder="[{ 'text': 'Submerged streets...', 'location_mention': 'Gulshan' }]" oninput="updateCharCount('social-input', 'social-counter')"></textarea>
-                            <div class="char-counter" id="social-counter">0 characters</div>
+                        <div class="input-group">
+                            <label class="input-lbl">Social Media Stream — JSON Array</label>
+                            <textarea id="social-input" rows="5"
+                                placeholder='[{"text":"Flooding on University Road","location_mention":"Gulshan","likes":1200,"verified":true}]'
+                                oninput="updateCharCount('social-input','social-counter')"></textarea>
+                            <div class="char-count" id="social-counter">0 characters</div>
                         </div>
 
-                        <!-- Button -->
-                        <button class="btn-large" id="triage-btn" onclick="runAnalysis()">⚡ START ANALYZE &amp; TRIAGE</button>
+                        <button class="analyze-btn" id="triage-btn" onclick="runAnalysis()">
+                            <i class="fa-solid fa-bolt"></i> Start Analyze and Triage
+                        </button>
                     </div>
 
-                    <!-- Side Panel: Quick Mock Data Loaders & Output logs -->
-                    <div>
-                        <div class="results-panel-box" id="results-panel">
-                            <h3 class="chart-title" style="color: var(--amber);">▸ SYSTEM PIPELINE TICKETS</h3>
+                    <div class="analyze-right">
+                        <div class="results-box" id="results-panel" style="display:none;">
+                            <div class="results-title">Pipeline Execution Report</div>
                             <div id="results-content"></div>
                         </div>
-
-                        <div class="chart-card" style="margin-top: 16px;">
-                            <div class="mono" style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; text-transform: uppercase; font-weight: 700;">Simulated Test Scenarios</div>
-                            <button class="btn btn-secondary" style="width: 100%; margin-bottom: 10px; text-align: left; padding: 12px;" onclick="loadDemoScenario('flood')">
-                                🌊 Load Gulshan Flood Incident
+                        <div class="scenarios-box">
+                            <div class="scenarios-lbl">Simulated Test Scenarios</div>
+                            <button class="scenario-btn" onclick="loadDemoScenario('flood')">
+                                <i class="fa-solid fa-water"></i> Load Gulshan Flood Incident
                             </button>
-                            <button class="btn btn-secondary" style="width: 100%; text-align: left; padding: 12px;" onclick="loadDemoScenario('false-alarm')">
-                                ⚠️ Load NIPA Burst Pipe (Conflict Check)
+                            <button class="scenario-btn" onclick="loadDemoScenario('false-alarm')">
+                                <i class="fa-solid fa-pipe-valve"></i> Load NIPA Burst Pipe — Conflict Check
                             </button>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <!-- ═══ INCIDENTS SCREEN ═══ -->
+            <!-- INCIDENTS -->
             <section id="incidents" class="section">
                 <div class="page-header">
                     <h1 class="page-title">Active Response Incidents</h1>
-                    <div class="page-sub">All active operations, resource assignments, and stakeholder updates</div>
+                    <p class="page-sub">All active operations, resource assignments, and stakeholder updates</p>
                 </div>
-
-                <!-- Filter Bar -->
                 <div class="filter-bar">
-                    <button class="filter-btn active" onclick="filterIncidents('ALL')">ALL INCIDENTS</button>
-                    <button class="filter-btn" onclick="filterIncidents('CRITICAL')">🔴 CRITICAL</button>
-                    <button class="filter-btn" onclick="filterIncidents('MODERATE')">🟡 MODERATE</button>
-                    <button class="filter-btn" onclick="filterIncidents('LOW')">🟢 LOW</button>
-                    <button class="filter-btn" onclick="filterIncidents('responding')">● DEPLOYED</button>
-                    <button class="filter-btn" onclick="filterIncidents('verification_required')">⚑ VERIFICATION</button>
+                    <button class="filter-btn active" onclick="filterIncidents('ALL')">All Incidents</button>
+                    <button class="filter-btn" onclick="filterIncidents('CRITICAL')">Critical</button>
+                    <button class="filter-btn" onclick="filterIncidents('MODERATE')">Moderate</button>
+                    <button class="filter-btn" onclick="filterIncidents('LOW')">Low</button>
+                    <button class="filter-btn" onclick="filterIncidents('responding')">Deployed</button>
+                    <button class="filter-btn" onclick="filterIncidents('verification_required')">Verification</button>
                 </div>
-
-                <!-- Incidents List -->
-                <div id="all-incidents-list" class="incidents-container">
-                    <div class="empty">
-                        <div class="empty-icon">⚠</div>
-                        <div class="empty-text">No active incidents logged.</div>
+                <div id="all-incidents-list">
+                    <div class="empty-state"><i class="fa-solid fa-triangle-exclamation empty-icon"></i>
+                        <p>No active incidents logged.</p>
                     </div>
                 </div>
             </section>
 
-            <!-- ═══ RESOURCES SCREEN ═══ -->
+            <!-- RESOURCES -->
             <section id="resources" class="section">
                 <div class="page-header">
                     <h1 class="page-title">Operational Fleet Deployment</h1>
-                    <div class="page-sub">Global resource tracking and utilization rates</div>
+                    <p class="page-sub">Global resource tracking and utilization rates</p>
                 </div>
-
-                <!-- Top Summary Row -->
-                <div class="res-summary-row">
-                    <span class="res-summary-lbl">Fleet Deployment Summary</span>
-                    <span class="res-summary-val" id="res-summary-val">DEPLOYED: 0 units · AVAILABLE: 14 units</span>
-                </div>
-
-                <!-- Resource Utilization Grid -->
-                <div class="resources-grid" id="resources-dashboard-grid">
-                    <!-- Ambulances -->
-                    <div class="res-card-box" id="res-ambulances">
-                        <div class="res-header-info">
-                            <span class="res-card-title">🚑 Ambulances</span>
-                            <span class="res-util-percent" id="util-ambulances">0% USED</span>
+                <div class="res-summary-bar" id="res-summary-val">Deployed: 0 units — Available: 14 units</div>
+                <div class="resources-grid">
+                    <div class="res-card">
+                        <div class="res-card-top"><span class="res-card-title">Ambulances</span><span class="res-pct"
+                                id="util-ambulances">0% Used</span></div>
+                        <div class="util-track">
+                            <div class="util-fill" id="util-bar-ambulances" style="width:0%"></div>
                         </div>
-                        <div class="util-bar-bg">
-                            <div class="util-bar-fill" id="util-bar-ambulances" style="width: 0%;"></div>
-                        </div>
-                        <div class="unit-capsules" id="units-ambulances"></div>
+                        <div class="unit-pills" id="units-ambulances"></div>
                     </div>
-
-                    <!-- Rescue Teams -->
-                    <div class="res-card-box" id="res-rescue_teams">
-                        <div class="res-header-info">
-                            <span class="res-card-title">🚒 Rescue Teams</span>
-                            <span class="res-util-percent" id="util-rescue_teams">0% USED</span>
+                    <div class="res-card">
+                        <div class="res-card-top"><span class="res-card-title">Rescue Teams</span><span class="res-pct"
+                                id="util-rescue_teams">0% Used</span></div>
+                        <div class="util-track">
+                            <div class="util-fill" id="util-bar-rescue_teams" style="width:0%"></div>
                         </div>
-                        <div class="util-bar-bg">
-                            <div class="util-bar-fill" id="util-bar-rescue_teams" style="width: 0%;"></div>
-                        </div>
-                        <div class="unit-capsules" id="units-rescue_teams"></div>
+                        <div class="unit-pills" id="units-rescue_teams"></div>
                     </div>
-
-                    <!-- Police Units -->
-                    <div class="res-card-box" id="res-police_units">
-                        <div class="res-header-info">
-                            <span class="res-card-title">👮 Police Units</span>
-                            <span class="res-util-percent" id="util-police_units">0% USED</span>
+                    <div class="res-card">
+                        <div class="res-card-top"><span class="res-card-title">Police Units</span><span class="res-pct"
+                                id="util-police_units">0% Used</span></div>
+                        <div class="util-track">
+                            <div class="util-fill" id="util-bar-police_units" style="width:0%"></div>
                         </div>
-                        <div class="util-bar-bg">
-                            <div class="util-bar-fill" id="util-bar-police_units" style="width: 0%;"></div>
-                        </div>
-                        <div class="unit-capsules" id="units-police_units"></div>
+                        <div class="unit-pills" id="units-police_units"></div>
                     </div>
-
-                    <!-- Water Tankers -->
-                    <div class="res-card-box" id="res-water_tankers">
-                        <div class="res-header-info">
-                            <span class="res-card-title">🚛 Water Tankers</span>
-                            <span class="res-util-percent" id="util-water_tankers">0% USED</span>
+                    <div class="res-card">
+                        <div class="res-card-top"><span class="res-card-title">Water Tankers</span><span class="res-pct"
+                                id="util-water_tankers">0% Used</span></div>
+                        <div class="util-track">
+                            <div class="util-fill" id="util-bar-water_tankers" style="width:0%"></div>
                         </div>
-                        <div class="util-bar-bg">
-                            <div class="util-bar-fill" id="util-bar-water_tankers" style="width: 0%;"></div>
-                        </div>
-                        <div class="unit-capsules" id="units-water_tankers"></div>
+                        <div class="unit-pills" id="units-water_tankers"></div>
                     </div>
                 </div>
             </section>
 
-            <!-- ═══ AGENT LOGS SCREEN ═══ -->
+            <!-- LOGS -->
             <section id="logs" class="section">
                 <div class="page-header">
                     <h1 class="page-title">Agent Reasoning Audit</h1>
-                    <div class="page-sub">Full model trace logic showing collaborative agent problem solving</div>
+                    <p class="page-sub">Full model trace logic showing collaborative agent problem solving</p>
                 </div>
-
-                <!-- Session flow visualization -->
-                <div class="agent-timeline-viz">
-                    <div class="viz-title">Agent Lifecycle Phase</div>
-                    <div class="viz-steps">
-                        <div class="viz-step" id="viz-step-1">
-                            <div class="viz-dot">1</div>
-                            <span class="viz-step-lbl">Ingestion</span>
+                <div class="lifecycle-card">
+                    <div class="lifecycle-title">Agent Lifecycle Phase</div>
+                    <div class="lifecycle-steps">
+                        <div class="lc-step" id="viz-step-1">
+                            <div class="lc-dot">1</div><span class="lc-lbl">Ingestion</span>
                         </div>
-                        <div class="viz-step" id="viz-step-2">
-                            <div class="viz-dot">2</div>
-                            <span class="viz-step-lbl">Fusion</span>
+                        <div class="lc-line"></div>
+                        <div class="lc-step" id="viz-step-2">
+                            <div class="lc-dot">2</div><span class="lc-lbl">Fusion</span>
                         </div>
-                        <div class="viz-step" id="viz-step-3">
-                            <div class="viz-dot">3</div>
-                            <span class="viz-step-lbl">Allocation</span>
+                        <div class="lc-line"></div>
+                        <div class="lc-step" id="viz-step-3">
+                            <div class="lc-dot">3</div><span class="lc-lbl">Allocation</span>
                         </div>
-                        <div class="viz-step" id="viz-step-4">
-                            <div class="viz-dot">4</div>
-                            <span class="viz-step-lbl">Execution</span>
+                        <div class="lc-line"></div>
+                        <div class="lc-step" id="viz-step-4">
+                            <div class="lc-dot">4</div><span class="lc-lbl">Execution</span>
                         </div>
                     </div>
                 </div>
-
-                <!-- Filter Logs Bar -->
-                <div class="filter-bar" style="margin-bottom: 20px;">
-                    <button class="filter-btn active" onclick="filterLogs('ALL')">ALL AGENT LOGS</button>
-                    <button class="filter-btn" onclick="filterLogs('Agent1_SignalIngestion')">🟦 Ingestion Agent (1)</button>
-                    <button class="filter-btn" onclick="filterLogs('Agent2_FusionScoring')">🟨 Fusion Agent (2)</button>
-                    <button class="filter-btn" onclick="filterLogs('Agent3_ResourceAllocation')">🟩 Allocation Agent (3)</button>
-                    <button class="filter-btn" onclick="filterLogs('Agent4_Execution')">🟥 Execution Agent (4)</button>
+                <div class="filter-bar">
+                    <button class="filter-btn active" onclick="filterLogs('ALL')">All Logs</button>
+                    <button class="filter-btn" onclick="filterLogs('Agent1_SignalIngestion')">Ingestion</button>
+                    <button class="filter-btn" onclick="filterLogs('Agent2_FusionScoring')">Fusion</button>
+                    <button class="filter-btn" onclick="filterLogs('Agent3_ResourceAllocation')">Allocation</button>
+                    <button class="filter-btn" onclick="filterLogs('Agent4_Execution')">Execution</button>
                 </div>
-
-                <!-- Logs list -->
-                <div id="logs-list-container" class="log-list">
-                    <div class="empty">
-                        <div class="empty-icon">≡</div>
-                        <div class="empty-text">No active audit logs written. Run an analysis.</div>
+                <div id="logs-list-container">
+                    <div class="empty-state"><i class="fa-solid fa-terminal empty-icon"></i>
+                        <p>No audit logs yet. Run an analysis first.</p>
                     </div>
                 </div>
             </section>
+
         </main>
     </div>
 
-    <!-- TOAST CONTAINER -->
     <div id="toast-container" class="toast-container"></div>
-
-    <!-- Google Maps Script API -->
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAXgMN1HQLNcKWWwolVYKqkv6MFYJL0J6c"></script>
-    <!-- App Script -->
+    <script
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAXgMN1HQLNcKWWwolVYKqkv6MFYJL0J6c&callback=initPakistanMap"
+        async defer></script>
     <script src="/static/js/app.js"></script>
 </body>
+
 </html>

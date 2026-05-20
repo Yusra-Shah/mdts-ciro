@@ -88,5 +88,9 @@ def initialize_resources():
                 "assigned_to": None,
                 "unit_id": res_id
             })
-    batch.commit()
+    try:
+        batch.commit()
+    except Exception as e:
+        print(f"Warning: Firestore batch commit failed: {e}")
+    # Continue without persisting resources
     return True

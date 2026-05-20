@@ -1,1137 +1,858 @@
-const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:5000' : '';
+// MDTS CIRO — app.js
+const API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:5000' : '';
 
-// Active filter state
-let currentIncidentFilter = 'ALL';
-let currentLogFilter = 'ALL';
 let allIncidents = [];
 let allLogs = [];
+let currentIncidentFilter = 'ALL';
+let currentLogFilter = 'ALL';
 let uploadedImagePath = 'mock_data/images/test.jpg';
+let map = null;
+let mapMarkers = [];
+let weatherLayers = {};
+let activeLayer = null;
 
-// ── DOM Initializer ─────────────────────────────────────────────
+// ── INIT ──────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-    // Start clock
-    startPakistanClock();
-
-    // Load main views
-    refreshAllData();
-
-    // Load weather strip & alerts banner
-    loadWeatherStrip();
-    loadWeatherAlertsBanner();
+    startClock();
+    refreshAll();
+    loadWeather();
+    loadWeatherAlerts();
     loadMonitoringStatus();
-
-    // Initial character counters
-    updateCharCount('transcript-input', 'transcript-counter');
-    updateCharCount('social-input', 'social-counter');
-
-    // Auto refresh stats/dashboard every 25 seconds
-    setInterval(refreshAllData, 25000);
-
-    // Auto refresh weather, alerts and status every 3 minutes
-    setInterval(() => {
-        loadWeatherStrip();
-        loadWeatherAlertsBanner();
-        loadMonitoringStatus();
-    }, 180000);
+    loadEarthquakes();
+    loadThreatAssessment();
+    setThemeToggleIcon();
+    setInterval(refreshAll, 30000);
+    setInterval(() => { loadWeather(); loadWeatherAlerts(); loadMonitoringStatus(); }, 180000);
+    setInterval(loadEarthquakes, 300000);
 });
 
-// ── Clock & Telemetry ───────────────────────────────────────────
-function startPakistanClock() {
-    const clockEl = document.getElementById('pk-clock');
-    if (!clockEl) return;
+function setThemeToggleIcon() {
+    const theme = document.documentElement.getAttribute('data-theme') || 'light';
+    const btn = document.getElementById('theme-toggle');
+    if (btn) btn.innerHTML = theme === 'dark' ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>';
+}
 
+// ── CLOCK ─────────────────────────────────────────────────────────
+function startClock() {
+    const el = document.getElementById('pk-clock');
+    if (!el) return;
     setInterval(() => {
-        // Compute PK time (UTC + 5)
         const now = new Date();
-        const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-        const pkTime = new Date(utc + (3600000 * 5));
-        
-        const hrs = String(pkTime.getHours()).padStart(2, '0');
-        const mins = String(pkTime.getMinutes()).padStart(2, '0');
-        const secs = String(pkTime.getSeconds()).padStart(2, '0');
-        
-        clockEl.textContent = `PAKISTAN COMMAND TIME: ${hrs}:${mins}:${secs}`;
+        const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+        const pk = new Date(utc + 3600000 * 5);
+        el.textContent = 'Pakistan Time: ' +
+            String(pk.getHours()).padStart(2, '0') + ':' +
+            String(pk.getMinutes()).padStart(2, '0') + ':' +
+            String(pk.getSeconds()).padStart(2, '0');
     }, 1000);
 }
 
-// ── Refresh stats & dashboard ────────────────────────────────────
-async function refreshAllData() {
-    try {
-        await loadStats();
-        await fetchIncidents();
-        await fetchLogs();
-        await fetchResources();
-        plotMapMarkers();
-    } catch (e) {
-        console.error("System sync failed: ", e);
-    }
+// ── REFRESH ───────────────────────────────────────────────────────
+async function refreshAll() {
+    await loadStats();
+    await loadIncidents();
+    await loadLogs();
+    await loadResources();
+    await loadThreatAssessment();
+    if (map) plotMarkers();
 }
 
-// ── Stats Loader & Animation ─────────────────────────────────────
+// ── STATS ─────────────────────────────────────────────────────────
 async function loadStats() {
     try {
-        const res = await fetch(`${API_URL}/stats`);
-        if (!res.ok) throw new Error("Stats API unavailable");
-        const stats = await res.json();
-
-        // Animate numbers counting up from 0 to targets
-        animateNumberValue('stat-incidents', stats.total_incidents, 0);
-        animateNumberValue('stat-resources', stats.resources_deployed, 0);
-        animateNumberValue('stat-avg-severity', stats.avg_severity, 1);
-        
-        // Update dashboard comparison banner text contextually
-        const compBase = document.getElementById('comp-base-summary');
-        const compAgent = document.getElementById('comp-agentic-summary');
-        const benchmarkIncidents = document.getElementById('benchmark-incidents-found');
-        if (stats.total_incidents > 0) {
-            if (compBase) compBase.textContent = `1 Cluster Detected (All resources to heaviest source)`;
-            if (compAgent) compAgent.textContent = `${stats.total_incidents} Clusters Dynamically Triaged (Proportional deployment)`;
-        }
-        if (benchmarkIncidents) {
-            benchmarkIncidents.textContent = `${stats.total_incidents} Dynamic Incidents Clustered`;
-        }
-    } catch (e) {
-        console.error("Stats fetching error: ", e);
-    }
+        const r = await fetch(API_URL + '/stats');
+        if (!r.ok) return;
+        const s = await r.json();
+        animateNum('stat-incidents', s.total_incidents || 0, 0);
+        animateNum('stat-resources', s.resources_deployed || 0, 0);
+        animateNum('stat-avg-severity', s.avg_severity || 0, 1);
+        const bi = document.getElementById('benchmark-incidents-found');
+        if (bi) bi.textContent = (s.total_incidents || 0) + ' incidents found';
+    } catch (e) { console.error('Stats:', e); }
 }
 
-function animateNumberValue(id, target, decimals = 0) {
+function animateNum(id, target, dec) {
     const el = document.getElementById(id);
     if (!el) return;
-    
     const start = parseFloat(el.textContent) || 0;
-    const duration = 1000; // 1s animation
-    const startTime = performance.now();
-    
-    function update(currentTime) {
-        const elapsed = currentTime - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        
-        // Ease out quad
-        const ease = progress * (2 - progress);
-        const current = start + (target - start) * ease;
-        
-        el.textContent = current.toFixed(decimals);
-        
-        if (progress < 1) {
-            requestAnimationFrame(update);
-        }
+    const dur = 800;
+    const t0 = performance.now();
+    function step(now) {
+        const p = Math.min((now - t0) / dur, 1);
+        const ease = p * (2 - p);
+        el.textContent = (start + (target - start) * ease).toFixed(dec);
+        if (p < 1) requestAnimationFrame(step);
     }
-    requestAnimationFrame(update);
+    requestAnimationFrame(step);
 }
 
-// ── Character Counters & Upload Selectors ───────────────────────
-function updateCharCount(textareaId, counterId) {
-    const textEl = document.getElementById(textareaId);
-    const counterEl = document.getElementById(counterId);
-    if (textEl && counterEl) {
-        counterEl.textContent = `${textEl.value.length} characters`;
+// ── INCIDENTS ─────────────────────────────────────────────────────
+async function loadIncidents() {
+    try {
+        const r = await fetch(API_URL + '/incidents');
+        if (!r.ok) return;
+        allIncidents = await r.json();
+        updateChart(allIncidents);
+        renderDashboardIncidents();
+        renderFilteredIncidents();
+        if (map) plotMarkers();
+    } catch (e) { console.error('Incidents:', e); }
+}
+
+function updateChart(incidents) {
+    const total = incidents.length || 1;
+    let crit = 0, mod = 0, low = 0;
+    incidents.forEach(i => {
+        const s = i.severity_score;
+        if (s > 7) crit++;
+        else if (s >= 4) mod++;
+        else low++;
+    });
+    setChart('critical', crit, total);
+    setChart('moderate', mod, total);
+    setChart('low', low, total);
+}
+
+function setChart(key, count, total) {
+    const pct = Math.round(count / total * 100);
+    const c = document.getElementById('dist-' + key + '-count');
+    const b = document.getElementById('dist-' + key + '-bar');
+    if (c) c.textContent = count + ' incidents (' + pct + '%)';
+    if (b) b.style.width = pct + '%';
+}
+
+function renderDashboardIncidents() {
+    const el = document.getElementById('dashboard-incidents-list');
+    if (!el) return;
+    if (!allIncidents.length) {
+        el.innerHTML = '<div class="empty-state"><i class="fa-solid fa-satellite-dish empty-icon"></i><p>No active incidents. Ingest signals in the Analyze Lab.</p></div>';
+        return;
     }
+    const top = [...allIncidents].sort((a, b) => b.severity_score - a.severity_score).slice(0, 3);
+    el.innerHTML = top.map(i => renderCard(i, false)).join('');
+}
+
+function filterIncidents(f) {
+    currentIncidentFilter = f;
+    document.querySelectorAll('#incidents .filter-btn').forEach(b => {
+        b.classList.toggle('active', b.textContent.trim() === f || (f === 'ALL' && b.textContent.includes('All')));
+    });
+    renderFilteredIncidents();
+}
+
+function renderFilteredIncidents() {
+    const el = document.getElementById('all-incidents-list');
+    if (!el) return;
+    let list = [...allIncidents];
+    if (currentIncidentFilter === 'CRITICAL') list = list.filter(i => i.severity_score > 7);
+    else if (currentIncidentFilter === 'MODERATE') list = list.filter(i => i.severity_score >= 4 && i.severity_score <= 7);
+    else if (currentIncidentFilter === 'LOW') list = list.filter(i => i.severity_score < 4);
+    else if (currentIncidentFilter === 'responding') list = list.filter(i => i.status === 'responding');
+    else if (currentIncidentFilter === 'verification_required') list = list.filter(i => i.status === 'verification_required');
+    if (!list.length) {
+        el.innerHTML = '<div class="empty-state"><i class="fa-solid fa-triangle-exclamation empty-icon"></i><p>No incidents matching this filter.</p></div>';
+        return;
+    }
+    el.innerHTML = list.map(i => renderCard(i, true)).join('');
+}
+
+function getAccent(sev) {
+    if (sev > 7) return 'var(--red)';
+    if (sev >= 4) return 'var(--amber)';
+    return 'var(--teal)';
+}
+
+function chipClass(status) {
+    const m = { responding: 'chip-responding', verification_required: 'chip-verification_required', monitoring: 'chip-monitoring', detected: 'chip-detected' };
+    return m[status] || 'chip-monitoring';
+}
+
+function chipLabel(status) {
+    const m = { responding: 'Responding', verification_required: 'Verify First', monitoring: 'Monitoring', detected: 'Detected' };
+    return m[status] || status;
+}
+
+function renderCard(inc, expanded) {
+    const color = getAccent(inc.severity_score);
+    const conf = Math.round((inc.confidence || 0.75) * 100);
+    const pop = (inc.affected_population || 6500).toLocaleString();
+    const status = inc.status || 'monitoring';
+    const resources = inc.resource_assignment && Object.keys(inc.resource_assignment).length
+        ? Object.entries(inc.resource_assignment).map(([k, v]) => v + ' ' + k.replace('_', ' ')).join(', ')
+        : 'None allocated';
+
+    let expandedHTML = '';
+    if (expanded) {
+        expandedHTML = `
+    <div class="expanded-panel">
+      <div class="field-grid">
+        <div class="field-block">
+          <div class="field-lbl">Affected Population</div>
+          <div class="field-val">${pop} estimated</div>
+        </div>
+        <div class="field-block">
+          <div class="field-lbl">Spread Risk</div>
+          <div class="field-val">${(inc.spread_risk || 'medium').toUpperCase()}</div>
+        </div>
+        <div class="field-block">
+          <div class="field-lbl">Fleet Allocations</div>
+          <div class="field-val">${resources}</div>
+        </div>
+        <div class="field-block">
+          <div class="field-lbl">AI Reasoning</div>
+          <div class="field-val" style="font-size:11px;color:var(--text-sub);">${inc.allocation_reasoning || 'Monitoring only.'}</div>
+        </div>
+      </div>
+      <div class="trace-title">Agent Ingestion Trace</div>
+      <div class="trace-timeline">
+        <div class="trace-item">
+          <div class="trace-dot done" style="border-color:var(--blue);background:var(--blue);"></div>
+          <div class="trace-agent" style="color:var(--blue);">Agent 1 — Signal Ingestion</div>
+          <div class="trace-action">Three streams fused: satellite, call transcript, social media — confidence ${conf}%</div>
+        </div>
+        <div class="trace-item">
+          <div class="trace-dot done" style="border-color:var(--amber);background:var(--amber);"></div>
+          <div class="trace-agent" style="color:var(--amber);">Agent 2 — Geospatial Fusion</div>
+          <div class="trace-action">${inc.conflict_detected ? 'Conflict detected and resolved between signal sources.' : 'No conflicts between signal sources.'}</div>
+        </div>
+        <div class="trace-item">
+          <div class="trace-dot done" style="border-color:var(--teal);background:var(--teal);"></div>
+          <div class="trace-agent" style="color:var(--teal);">Agent 3 — Fleet Allocation</div>
+          <div class="trace-action">Resources allocated: ${resources}</div>
+        </div>
+        <div class="trace-item">
+          <div class="trace-dot ${status === 'responding' ? 'done' : ''}" style="border-color:var(--red);${status === 'responding' ? 'background:var(--red);' : ''}"></div>
+          <div class="trace-agent" style="color:var(--red);">Agent 4 — Execution</div>
+          <div class="trace-action">Record stored in Firestore. Stakeholder messages dispatched.</div>
+        </div>
+      </div>
+      <div class="trace-title">Stakeholder Broadcasts</div>
+      <div class="stakeholder-grid">
+        <div class="sh-card">
+          <i class="fa-solid fa-bullhorn sh-icon"></i>
+          <div>
+            <div class="sh-lbl">Public Alert</div>
+            <div class="sh-text">${inc.public_notification || 'Emergency response initiated. Avoid the area.'}</div>
+            <div class="sh-status">Broadcast Simulated</div>
+          </div>
+        </div>
+        <div class="sh-card">
+          <i class="fa-solid fa-square-h sh-icon"></i>
+          <div>
+            <div class="sh-lbl">Hospital Notice</div>
+            <div class="sh-text">${inc.hospital_alert || 'Jinnah Hospital'} alerted. Prepare emergency bay.</div>
+            <div class="sh-status">Alert Acknowledged</div>
+          </div>
+        </div>
+        <div class="sh-card">
+          <i class="fa-solid fa-bolt sh-icon"></i>
+          <div>
+            <div class="sh-lbl">Utilities</div>
+            <div class="sh-text">KESC and SNGPL notified. Infrastructure risk assessment initiated.</div>
+            <div class="sh-status">Checklist Queued</div>
+          </div>
+        </div>
+        <div class="sh-card">
+          <i class="fa-solid fa-camera sh-icon"></i>
+          <div>
+            <div class="sh-lbl">Media Brief</div>
+            <div class="sh-text">Official response operations active at ${inc.location || 'incident location'}.</div>
+            <div class="sh-status">Press Release Published</div>
+          </div>
+        </div>
+      </div>
+      <div class="dispatch-banner ${status === 'responding' ? 'dispatch-ok' : 'dispatch-wait'}">
+        ${status === 'responding' ? 'Dispatch Confirmed — En Route' : 'Awaiting Field Verification'}
+      </div>
+    </div>`;
+    } else {
+        expandedHTML = `
+    <div class="ic-actions">
+      <button class="btn-primary" onclick="showSection('incidents')">View Details</button>
+      <button class="btn-ghost">Dispatch</button>
+    </div>`;
+    }
+
+    return `
+  <div class="incident-card" style="--accent:${color};">
+    <div class="ic-header">
+      <div>
+        <div class="ic-type">${(inc.crisis_type || 'Unknown').toUpperCase()}</div>
+        <div class="ic-loc"><i class="fa-solid fa-location-dot" style="color:var(--amber);margin-right:4px;"></i>${inc.location || 'Unknown Location'}</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="ic-sev-val" style="color:${color};">${inc.severity_score || 0}</div>
+        <div class="ic-sev-lbl">Severity Score</div>
+      </div>
+    </div>
+    <div class="ic-metrics">
+      <span class="ic-metric">Population: <strong>${pop}</strong></span>
+      <span class="ic-metric">Confidence: <strong>${conf}%</strong></span>
+      <span class="ic-metric">Risk: <strong>${(inc.spread_risk || 'medium').toUpperCase()}</strong></span>
+    </div>
+    <div class="ic-footer">
+      <span class="status-chip ${chipClass(status)}">${chipLabel(status)}</span>
+      ${expandedHTML}
+    </div>
+  </div>`;
+}
+
+// ── LOGS ──────────────────────────────────────────────────────────
+async function loadLogs() {
+    try {
+        const r = await fetch(API_URL + '/agent-logs');
+        if (!r.ok) return;
+        allLogs = await r.json();
+        renderFilteredLogs();
+    } catch (e) { console.error('Logs:', e); }
+}
+
+function filterLogs(f) {
+    currentLogFilter = f;
+    document.querySelectorAll('#logs .filter-btn').forEach(b => {
+        b.classList.toggle('active', b.textContent.trim() === f || (f === 'ALL' && b.textContent.includes('All')));
+    });
+    renderFilteredLogs();
+}
+
+function renderFilteredLogs() {
+    const el = document.getElementById('logs-list-container');
+    if (!el) return;
+    let list = [...allLogs];
+    if (currentLogFilter !== 'ALL') list = list.filter(l => l.agent_name === currentLogFilter);
+    if (!list.length) {
+        el.innerHTML = '<div class="empty-state"><i class="fa-solid fa-terminal empty-icon"></i><p>No logs matching this filter.</p></div>';
+        return;
+    }
+    el.innerHTML = list.map(log => {
+        let cls = 'agent-2';
+        if ((log.agent_name || '').includes('Ingestion')) cls = 'agent-1';
+        else if ((log.agent_name || '').includes('Fusion')) cls = 'agent-2';
+        else if ((log.agent_name || '').includes('Allocation')) cls = 'agent-3';
+        else if ((log.agent_name || '').includes('Execution')) cls = 'agent-4';
+        const t = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : '--';
+        return `
+    <div class="log-card ${cls}">
+      <div class="log-top">
+        <div><span class="log-agent">${log.agent_name || 'Agent'}</span><span class="log-step">Step ${log.step || 1}</span></div>
+        <div class="log-time">${t}</div>
+      </div>
+      <div class="log-obs">${log.observation || 'Processing signal streams.'}</div>
+      <div class="log-reason expandable collapsed" onclick="this.classList.toggle('collapsed');this.nextElementSibling.innerHTML=this.classList.contains('collapsed')?'Show reasoning':'Hide reasoning';">
+        ${log.reasoning || ''}
+      </div>
+      <div class="expand-hint" style="font-size:10px;color:var(--amber);cursor:pointer;margin-bottom:6px;" onclick="this.previousElementSibling.classList.toggle('collapsed');this.innerHTML=this.previousElementSibling.classList.contains('collapsed')?'Show reasoning':'Hide reasoning';">Show reasoning</div>
+      <div class="log-decision">Decision: ${log.decision || 'No action required.'}</div>
+    </div>`;
+    }).join('');
+}
+
+// ── RESOURCES ─────────────────────────────────────────────────────
+async function loadResources() {
+    try {
+        const r = await fetch(API_URL + '/incidents');
+        if (!r.ok) return;
+        const incidents = await r.json();
+        const limits = { ambulances: 5, rescue_teams: 3, police_units: 4, water_tankers: 2 };
+        const deployed = { ambulances: 0, rescue_teams: 0, police_units: 0, water_tankers: 0 };
+        incidents.forEach(inc => {
+            if (inc.status === 'responding' && inc.resource_assignment) {
+                Object.entries(inc.resource_assignment).forEach(([k, v]) => {
+                    if (deployed.hasOwnProperty(k)) deployed[k] += parseInt(v) || 0;
+                });
+            }
+        });
+        let total = 0;
+        Object.keys(limits).forEach(key => {
+            deployed[key] = Math.min(deployed[key], limits[key]);
+            total += deployed[key];
+            const pct = Math.round(deployed[key] / limits[key] * 100);
+            const pe = document.getElementById('util-' + key);
+            const be = document.getElementById('util-bar-' + key);
+            const ue = document.getElementById('units-' + key);
+            if (pe) pe.textContent = pct + '% Used';
+            if (be) be.style.width = pct + '%';
+            if (ue) {
+                ue.innerHTML = Array.from({ length: limits[key] }, (_, i) => {
+                    const dep = i < deployed[key];
+                    const name = key.slice(0, 3).toUpperCase() + '-' + String(i + 1).padStart(2, '0');
+                    return `<span class="unit-pill ${dep ? 'deployed' : ''}">${name}</span>`;
+                }).join('');
+            }
+        });
+        const sv = document.getElementById('res-summary-val');
+        if (sv) sv.textContent = 'Deployed: ' + total + ' units — Available: ' + (14 - total) + ' units';
+    } catch (e) { console.error('Resources:', e); }
+}
+
+// ── WEATHER ───────────────────────────────────────────────────────
+async function loadWeather() {
+    try {
+        const r = await fetch(API_URL + '/weather');
+        if (!r.ok) return;
+        const data = await r.json();
+        const el = document.getElementById('weather-strip');
+        if (!el) return;
+        const condMap = { Clear: 'Sunny', Haze: 'Hazy', Rain: 'Rainy', Clouds: 'Cloudy', 'Partly Cloudy': 'Partly Cloudy', Thunderstorm: 'Stormy', Smoke: 'Smoky' };
+        el.innerHTML = data.map(c => {
+            const risk = (c.flood_risk || 'LOW').toLowerCase();
+            const cond = condMap[c.condition] || c.condition;
+            return `
+      <div class="weather-card">
+        <div class="weather-city">${c.city}</div>
+        <div class="weather-temp-row">
+          <span class="weather-temp">${Math.round(c.temperature)}C</span>
+          <span class="weather-icon-text" style="font-size:12px;color:var(--text-sub);">${cond}</span>
+        </div>
+        <div class="weather-meta">
+          <span>Humidity: ${c.humidity}%</span>
+          <span>Wind: ${c.wind_speed} km/h</span>
+          <span>Feels like: ${Math.round(c.feels_like)}C</span>
+        </div>
+        <span class="weather-risk risk-${risk}">Flood: ${c.flood_risk}</span>
+      </div>`;
+        }).join('');
+        plotWeatherOnMap(data);
+    } catch (e) { console.error('Weather:', e); }
+}
+
+async function loadWeatherAlerts() {
+    try {
+        const r = await fetch(API_URL + '/weather/alerts');
+        if (!r.ok) return;
+        const alerts = await r.json();
+        const banner = document.getElementById('weather-alerts-banner');
+        const detail = document.getElementById('weather-alert-details');
+        if (!banner || !detail) return;
+        if (alerts && alerts.length) {
+            detail.textContent = alerts.map(a => a.city + ': ' + a.message).join(' | ');
+            banner.style.display = 'flex';
+        } else {
+            banner.style.display = 'none';
+        }
+    } catch (e) { console.error('Weather alerts:', e); }
+}
+
+async function loadMonitoringStatus() {
+    try {
+        const r = await fetch(API_URL + '/monitoring-status');
+        if (!r.ok) return;
+        const d = await r.json();
+        const le = document.getElementById('monitor-last-time');
+        const ne = document.getElementById('monitor-next-time');
+        if (le) le.textContent = d.last_run ? new Date(d.last_run).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Never';
+        if (ne) ne.textContent = d.next_run ? new Date(d.next_run).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--';
+    } catch (e) { console.error('Monitoring:', e); }
+}
+
+// ── GOOGLE MAP ────────────────────────────────────────────────────
+const lightMapStyle = [
+    { featureType: 'all', elementType: 'geometry', stylers: [{ saturation: -30 }] },
+    { featureType: 'administrative.country', elementType: 'geometry.stroke', stylers: [{ color: '#D97706' }, { weight: 1.5 }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#dbeafe' }] },
+    { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#f8fafc' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#e2e8f0' }] },
+];
+
+const darkMapStyle = [
+    { elementType: 'geometry', stylers: [{ color: '#121420' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#747b85' }] },
+    { featureType: 'administrative.country', elementType: 'geometry.stroke', stylers: [{ color: '#f59e0b' }, { weight: 1.5 }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#07080c' }] },
+    { featureType: 'landscape', elementType: 'geometry.fill', stylers: [{ color: '#0c0e14' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1c2130' }] },
+];
+
+function initPakistanMap() {
+    const el = document.getElementById('pakistan-map');
+    if (!el) return;
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    map = new google.maps.Map(el, {
+        center: { lat: 30.3753, lng: 69.3451 },
+        zoom: 5,
+        styles: isDark ? darkMapStyle : lightMapStyle,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true,
+        zoomControl: true,
+    });
+    plotMarkers();
+    if (allIncidents.length) plotMarkers();
+}
+
+function toggleLayer(layerName, btn) {
+    document.querySelectorAll('.map-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (activeLayer) { activeLayer.setMap(null); activeLayer = null; }
+    if (weatherLayers[layerName]) {
+        activeLayer = weatherLayers[layerName];
+        activeLayer.setMap(map);
+        return;
+    }
+    fetch(API_URL + '/weather').then(r => r.json()).then(data => {
+        const key = data[0]?.api_key || '';
+        const layer = new google.maps.ImageMapType({
+            getTileUrl: (c, z) => `https://tile.openweathermap.org/map/${layerName}/${z}/${c.x}/${c.y}.png?appid=b6b4bb4e3e4e17e8c12b35f1e4b2c5a8`,
+            tileSize: new google.maps.Size(256, 256),
+            opacity: 0.5,
+            name: layerName,
+        });
+        weatherLayers[layerName] = layer;
+        activeLayer = layer;
+        if (map) map.overlayMapTypes.push(layer);
+    }).catch(() => {
+        const layer = new google.maps.ImageMapType({
+            getTileUrl: (c, z) => `https://tile.openweathermap.org/map/${layerName}/${z}/${c.x}/${c.y}.png`,
+            tileSize: new google.maps.Size(256, 256),
+            opacity: 0.5,
+        });
+        activeLayer = layer;
+        if (map) map.overlayMapTypes.push(layer);
+    });
+}
+
+function cityCoords(loc) {
+    const l = (loc || '').toLowerCase();
+    if (l.includes('karachi') || l.includes('gulshan')) return { lat: 24.8607 + rand(), lng: 67.0011 + rand() };
+    if (l.includes('lahore')) return { lat: 31.5204 + rand(), lng: 74.3587 + rand() };
+    if (l.includes('islamabad') || l.includes('g-9') || l.includes('g-10')) return { lat: 33.6844 + rand(), lng: 73.0479 + rand() };
+    if (l.includes('hyderabad') || l.includes('latifabad')) return { lat: 25.3960 + rand(), lng: 68.3578 + rand() };
+    if (l.includes('peshawar')) return { lat: 34.0151 + rand(), lng: 71.5249 + rand() };
+    return { lat: 30.3753 + rand() * 2, lng: 69.3451 + rand() * 2 };
+}
+
+function rand() { return (Math.random() - 0.5) * 0.1; }
+
+function plotMarkers() {
+    if (!map) return;
+    mapMarkers.forEach(m => m.setMap(null));
+    mapMarkers = [];
+
+    allIncidents.forEach(inc => {
+        const sev = inc.severity_score || 0;
+        const color = sev > 7 ? '#DC2626' : sev >= 4 ? '#D97706' : '#059669';
+        const pos = cityCoords(inc.location);
+        const m = new google.maps.Marker({
+            position: pos, map: map,
+            title: inc.location,
+            icon: {
+                path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
+                scale: 7, fillColor: color, fillOpacity: 0.9,
+                strokeColor: '#fff', strokeWeight: 1.5
+            }
+        });
+        const iw = new google.maps.InfoWindow({
+            content: `
+      <div style="font-family:DM Sans,sans-serif;padding:10px;max-width:220px;">
+        <div style="font-weight:700;color:${color};font-size:13px;margin-bottom:6px;">${inc.incident_id || 'Incident'}</div>
+        <div><strong>Location:</strong> ${inc.location}</div>
+        <div><strong>Type:</strong> ${inc.crisis_type}</div>
+        <div><strong>Severity:</strong> ${sev}/10</div>
+        <div><strong>Status:</strong> ${inc.status}</div>
+      </div>` });
+        m.addListener('click', () => iw.open(map, m));
+        mapMarkers.push(m);
+    });
+
+    fetch(API_URL + '/satellite-alerts').then(r => r.json()).then(data => {
+        data.forEach(h => {
+            const m = new google.maps.Marker({
+                position: { lat: parseFloat(h.latitude), lng: parseFloat(h.longitude) },
+                map: map,
+                icon: { path: google.maps.SymbolPath.CIRCLE, scale: 6, fillColor: '#DC2626', fillOpacity: 0.8, strokeColor: '#D97706', strokeWeight: 1.5 }
+            });
+            const iw = new google.maps.InfoWindow({
+                content: `
+        <div style="font-family:DM Sans,sans-serif;padding:10px;">
+          <div style="font-weight:700;color:#DC2626;font-size:12px;margin-bottom:4px;">Satellite Anomaly</div>
+          <div><strong>Region:</strong> ${h.region}</div>
+          <div><strong>Confidence:</strong> ${h.confidence}</div>
+          <div><strong>Date:</strong> ${h.acq_date}</div>
+        </div>` });
+            m.addListener('click', () => iw.open(map, m));
+            mapMarkers.push(m);
+        });
+    }).catch(() => { });
+
+    fetch(API_URL + '/earthquakes').then(r => r.json()).then(data => {
+        data.forEach(eq => {
+            let color = '#EAB308';
+            let scale = 5;
+            if (eq.magnitude > 6.0) {
+                color = '#DC2626';
+                scale = 10;
+            } else if (eq.magnitude >= 4.5) {
+                color = '#D97706';
+                scale = 8;
+            }
+            const m = new google.maps.Marker({
+                position: { lat: parseFloat(eq.latitude), lng: parseFloat(eq.longitude) },
+                map: map,
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: scale,
+                    fillColor: color,
+                    fillOpacity: 0.8,
+                    strokeColor: '#FFFFFF',
+                    strokeWeight: 1.5
+                }
+            });
+            const tsunamiHtml = eq.tsunami ? `<div style="margin-top: 4px; color: #DC2626; font-weight: 700;"><i class="fa-solid fa-triangle-exclamation"></i> Tsunami Warning</div>` : '';
+            const iw = new google.maps.InfoWindow({
+                content: `
+        <div style="font-family:DM Sans,sans-serif;padding:10px;min-width:180px;">
+          <div style="font-weight:700;color:${color};font-size:12px;margin-bottom:4px;">Earthquake (Mag: ${eq.magnitude})</div>
+          <div><strong>Place:</strong> ${eq.place}</div>
+          <div><strong>Depth:</strong> ${eq.depth_km} km</div>
+          <div><strong>Time:</strong> ${new Date(eq.time).toLocaleString()}</div>
+          ${tsunamiHtml}
+        </div>`
+            });
+            m.addListener('click', () => iw.open(map, m));
+            mapMarkers.push(m);
+        });
+    }).catch(() => { });
+}
+
+function plotWeatherOnMap(data) {
+    if (!map) return;
+    const cityPos = {
+        Karachi: { lat: 24.8607, lng: 67.0011 }, Lahore: { lat: 31.5204, lng: 74.3587 },
+        Islamabad: { lat: 33.6844, lng: 73.0479 }, Hyderabad: { lat: 25.3960, lng: 68.3578 },
+        Peshawar: { lat: 34.0151, lng: 71.5249 }
+    };
+    data.forEach(c => {
+        const pos = cityPos[c.city];
+        if (!pos) return;
+        const m = new google.maps.Marker({
+            position: pos, map: map,
+            title: c.city + ' Weather',
+            label: { text: c.temperature + 'C', color: '#D97706', fontSize: '11px', fontWeight: '700' },
+            icon: { path: google.maps.SymbolPath.CIRCLE, scale: 1, fillOpacity: 0, strokeOpacity: 0 }
+        });
+        const iw = new google.maps.InfoWindow({
+            content: `
+      <div style="font-family:DM Sans,sans-serif;padding:10px;min-width:160px;">
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px;">${c.city}</div>
+        <div style="font-size:20px;font-weight:700;margin-bottom:4px;">${c.temperature}C</div>
+        <div>${c.condition}</div>
+        <div>Humidity: ${c.humidity}%</div>
+        <div>Wind: ${c.wind_speed} km/h</div>
+        <div style="font-weight:600;margin-top:6px;color:${c.flood_risk === 'HIGH' ? '#DC2626' : c.flood_risk === 'MEDIUM' ? '#D97706' : '#059669'};">Flood Risk: ${c.flood_risk}</div>
+      </div>` });
+        m.addListener('click', () => iw.open(map, m));
+        mapMarkers.push(m);
+    });
+}
+
+// ── ANALYSIS ──────────────────────────────────────────────────────
+async function runAnalysis() {
+    const transcript = document.getElementById('transcript-input').value.trim();
+    const socialRaw = document.getElementById('social-input').value.trim();
+    const btn = document.getElementById('triage-btn');
+    if (!transcript) { showToast('Enter an emergency transcript before running analysis.', 'err'); return; }
+    let social_posts = [];
+    if (socialRaw) {
+        try { social_posts = JSON.parse(socialRaw); }
+        catch { showToast('Social media field contains invalid JSON.', 'err'); return; }
+    }
+    const stages = ['Agent 1 Ingesting Signal Stream...', 'Agent 2 Fusing and Scoring...', 'Agent 3 Allocating Resources...', 'Agent 4 Executing and Storing...'];
+    let step = 0;
+    btn.disabled = true;
+    btn.style.opacity = '0.7';
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ' + stages[0];
+    const iv = setInterval(() => {
+        step = (step + 1) % stages.length;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ' + stages[step];
+        document.querySelectorAll('.lc-step').forEach((el, i) => el.classList.toggle('active', i <= step));
+    }, 2000);
+    try {
+        const r = await fetch(API_URL + '/analyze', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image_path: uploadedImagePath, transcript, social_posts })
+        });
+        clearInterval(iv);
+        btn.disabled = false; btn.style.opacity = '1';
+        btn.innerHTML = '<i class="fa-solid fa-bolt"></i> Start Analyze and Triage';
+        if (!r.ok) throw new Error('Pipeline error');
+        const data = await r.json();
+        renderResults(data);
+        showSection('dashboard');
+        showToast('Analysis complete. Incidents detected and logged.', 'ok');
+        await refreshAll();
+    } catch (e) {
+        clearInterval(iv);
+        btn.disabled = false; btn.style.opacity = '1';
+        btn.innerHTML = '<i class="fa-solid fa-bolt"></i> Start Analyze and Triage';
+        showToast('Analysis failed. Check backend connection.', 'err');
+    }
+}
+
+function renderResults(data) {
+    const panel = document.getElementById('results-panel');
+    const content = document.getElementById('results-content');
+    if (!panel || !content) return;
+    panel.style.display = 'block';
+    const incidents = data.incidents || [];
+    content.innerHTML = `
+    <div style="font-size:12px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border);">
+      <div>Session: <strong style="font-family:DM Mono,monospace;color:var(--amber);">${data.session_id}</strong></div>
+      <div style="margin-top:4px;">Processed: <strong>${data.total_incidents_processed} incidents</strong></div>
+    </div>` +
+        incidents.map(inc => `
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:8px;">
+      <div style="font-family:DM Mono,monospace;font-size:11px;color:var(--amber);font-weight:700;margin-bottom:4px;">${inc.incident_id}</div>
+      <div style="font-size:11px;display:flex;justify-content:space-between;">
+        <span>Status: <strong>${inc.status}</strong></span>
+        <span>Ticket: <strong style="font-family:DM Mono,monospace;">${inc.dispatch_ticket?.ticket_id || 'Pending'}</strong></span>
+      </div>
+    </div>`).join('');
 }
 
 function handleFileSelect(input) {
     if (!input.files || !input.files[0]) return;
     const file = input.files[0];
-    
-    // Set uploaded filename
-    uploadedImagePath = `mock_data/images/${file.name}`;
-    
-    // UI Feedback styling
+    uploadedImagePath = 'mock_data/images/' + file.name;
     const zone = document.getElementById('upload-zone');
-    const display = document.getElementById('filename-display');
+    const disp = document.getElementById('filename-display');
+    const prev = document.getElementById('image-preview-container');
+    const thumb = document.getElementById('image-preview-thumb');
     if (zone) zone.classList.add('has-file');
-    if (display) display.textContent = `✓ ${file.name}`;
-    
-    // Show image preview thumbnail
-    const previewContainer = document.getElementById('image-preview-container');
-    const previewThumb = document.getElementById('image-preview-thumb');
-    
-    if (previewContainer && previewThumb) {
+    if (disp) disp.textContent = file.name + ' selected';
+    if (prev && thumb) {
         const reader = new FileReader();
-        reader.onload = function(e) {
-            previewThumb.src = e.target.result;
-            previewContainer.style.display = 'block';
-        }
+        reader.onload = e => { thumb.src = e.target.result; prev.style.display = 'block'; };
         reader.readAsDataURL(file);
     }
 }
 
-// ── Triage Ingestion Invocator ──────────────────────────────────
-async function runAnalysis() {
-    const transcript = document.getElementById('transcript-input').value.trim();
-    const socialRaw = document.getElementById('social-input').value.trim();
-    const btn = document.getElementById('triage-btn');
-
-    let social_posts = [];
-    if (socialRaw) {
-        try {
-            social_posts = JSON.parse(socialRaw);
-        } catch(e) {
-            showToast("Invalid JSON array formatted inside Social Media input field.", "err");
-            return;
-        }
-    }
-
-    if (!transcript) {
-        showToast("Please enter an emergency voice transcript before initiating triage.", "err");
-        return;
-    }
-
-    // Set Loading state with status text cycler
-    btn.classList.add('disabled');
-    btn.disabled = true;
-    
-    const statuses = [
-        "AGENT 1 INGESTING LIVE SIGNAL STREAM...",
-        "AGENT 2 DYNAMIC FUSION & SCORING...",
-        "AGENT 3 PROPORTIONAL RESOURCE DISPATCHING...",
-        "AGENT 4 AUDITING STATE & RECORDING LOGS..."
-    ];
-    let step = 0;
-    btn.innerHTML = `<span class="loading-spinner" style="display:inline-block; margin-right:8px; vertical-align:middle;"></span> ${statuses[0]}`;
-    
-    const intervalId = setInterval(() => {
-        step = (step + 1) % statuses.length;
-        btn.innerHTML = `<span class="loading-spinner" style="display:inline-block; margin-right:8px; vertical-align:middle;"></span> ${statuses[step]}`;
-        
-        // Update Agent timeline active states inside agent logs tab preview
-        const vizSteps = document.querySelectorAll('.viz-step');
-        vizSteps.forEach((vs, idx) => {
-            if (idx <= step) vs.classList.add('active');
-            else vs.classList.remove('active');
-        });
-    }, 2000);
-
-    try {
-        const res = await fetch(`${API_URL}/analyze`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                image_path: uploadedImagePath,
-                transcript: transcript,
-                social_posts: social_posts
-            })
-        });
-
-        clearInterval(intervalId);
-        btn.classList.remove('disabled');
-        btn.disabled = false;
-        btn.textContent = "⚡ START ANALYZE & TRIAGE";
-
-        if (!res.ok) throw new Error("Pipeline returned error code");
-        const report = await res.json();
-        
-        // Switch view to dashboard on finish
-        showSection('dashboard');
-        showToast("System Ingestion and Incident Triage complete!", "ok");
-        
-        // Render reports inside side laboratory panel
-        renderLabResults(report);
-        
-        // Force refresh all layouts
-        refreshAllData();
-    } catch (e) {
-        clearInterval(intervalId);
-        btn.classList.remove('disabled');
-        btn.disabled = false;
-        btn.textContent = "⚡ START ANALYZE & TRIAGE";
-        showToast("Signal analysis failed — Backend connection issue.", "err");
-        console.error(e);
-    }
+function updateCharCount(tid, cid) {
+    const t = document.getElementById(tid);
+    const c = document.getElementById(cid);
+    if (t && c) c.textContent = t.value.length + ' characters';
 }
 
-function renderLabResults(data) {
-    const panel = document.getElementById('results-panel');
-    const content = document.getElementById('results-content');
-    if (!panel || !content) return;
-
-    panel.classList.add('visible');
-    const incidents = data.incidents || [];
-    
-    let html = `
-    <div style="font-size:12px; margin-bottom:12px; padding-bottom:10px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-        <div>Session ID: <strong class="mono" style="color:var(--amber);">${data.session_id}</strong></div>
-        <div style="margin-top:4px;">Processed: <strong class="mono">${data.total_incidents_processed} Incidents</strong></div>
-    </div>`;
-
-    incidents.forEach(inc => {
-        html += `
-        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:8px; padding:10px; margin-top:8px;">
-            <div class="mono" style="font-size:11px; color:var(--amber); font-weight:700;">${inc.incident_id}</div>
-            <div style="font-size:11px; margin-top:4px; display:flex; justify-content:space-between;">
-                <span>Status: <strong style="text-transform:uppercase;">${inc.status}</strong></span>
-                <span>Ticket: <strong class="mono">${inc.dispatch_ticket?.ticket_id || 'PENDING'}</strong></span>
-            </div>
-        </div>`;
-    });
-    
-    content.innerHTML = html;
-}
-
-// ── Incidents Filtering & Layouts ────────────────────────────────
-async function fetchIncidents() {
-    try {
-        const res = await fetch(`${API_URL}/incidents`);
-        if (!res.ok) throw new Error("Fail");
-        allIncidents = await res.json();
-        
-        // Update Pure CSS Severity Distribution Chart
-        updateSeverityDistributionChart(allIncidents);
-
-        // Update dashboard incident list
-        const dashContainer = document.getElementById('dashboard-incidents-list');
-        if (dashContainer) {
-            if (allIncidents.length === 0) {
-                dashContainer.innerHTML = `<div class="empty"><div class="empty-icon">📡</div><div class="empty-text">No active incidents tracked. Ingest signals in the Analyze Lab.</div></div>`;
-            } else {
-                const highPriority = allIncidents
-                    .sort((a,b) => b.severity_score - a.severity_score)
-                    .slice(0, 3);
-                dashContainer.innerHTML = highPriority.map(inc => renderIncidentCard(inc, false)).join('');
-            }
-        }
-
-        // Render main list under incidents view
-        renderFilteredIncidents();
-    } catch(e) {
-        console.error("Incidents load error: ", e);
-    }
-}
-
-function updateSeverityDistributionChart(incidents) {
-    const total = incidents.length || 1;
-    let crit = 0, mod = 0, low = 0;
-    
-    incidents.forEach(inc => {
-        const s = inc.severity_score;
-        if (s > 7.0) crit++;
-        else if (s >= 4.0) mod++;
-        else low++;
-    });
-
-    const cPercent = Math.round((crit / total) * 100);
-    const mPercent = Math.round((mod / total) * 100);
-    const lPercent = Math.round((low / total) * 100);
-
-    const cVal = document.getElementById('dist-critical-count');
-    const cBar = document.getElementById('dist-critical-bar');
-    if (cVal && cBar) {
-        cVal.textContent = `${crit} Incident${crit !== 1 ? 's' : ''} (${cPercent}%)`;
-        cBar.style.width = `${cPercent}%`;
-    }
-
-    const mVal = document.getElementById('dist-moderate-count');
-    const mBar = document.getElementById('dist-moderate-bar');
-    if (mVal && mBar) {
-        mVal.textContent = `${mod} Incident${mod !== 1 ? 's' : ''} (${mPercent}%)`;
-        mBar.style.width = `${mPercent}%`;
-    }
-
-    const lVal = document.getElementById('dist-low-count');
-    const lBar = document.getElementById('dist-low-bar');
-    if (lVal && lBar) {
-        lVal.textContent = `${low} Incident${low !== 1 ? 's' : ''} (${lPercent}%)`;
-        lBar.style.width = `${lPercent}%`;
-    }
-}
-
-function filterIncidents(filter) {
-    currentIncidentFilter = filter;
-    
-    // Toggle active filter button
-    const buttons = document.querySelectorAll('.filter-bar button');
-    buttons.forEach(btn => {
-        if (btn.textContent.includes(filter) || (filter === 'ALL' && btn.textContent.includes('ALL'))) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
-    });
-
-    renderFilteredIncidents();
-}
-
-function renderFilteredIncidents() {
-    const listEl = document.getElementById('all-incidents-list');
-    if (!listEl) return;
-
-    let filtered = [...allIncidents];
-    if (currentIncidentFilter === 'CRITICAL') {
-        filtered = allIncidents.filter(i => i.severity_score > 7.0);
-    } else if (currentIncidentFilter === 'MODERATE') {
-        filtered = allIncidents.filter(i => i.severity_score >= 4.0 && i.severity_score <= 7.0);
-    } else if (currentIncidentFilter === 'LOW') {
-        filtered = allIncidents.filter(i => i.severity_score < 4.0);
-    } else if (currentIncidentFilter === 'responding') {
-        filtered = allIncidents.filter(i => i.status === 'responding');
-    } else if (currentIncidentFilter === 'verification_required') {
-        filtered = allIncidents.filter(i => i.status === 'verification_required');
-    }
-
-    if (filtered.length === 0) {
-        listEl.innerHTML = `<div class="empty"><div class="empty-icon">⚠</div><div class="empty-text">No active incidents matching '${currentIncidentFilter}' status.</div></div>`;
-        return;
-    }
-
-    listEl.innerHTML = filtered.map(inc => renderIncidentCard(inc, true)).join('');
-}
-
-function renderIncidentCard(inc, expanded = false) {
-    let color = 'var(--teal)';
-    let colorClass = 'low';
-    if (inc.severity_score > 7.0) {
-        color = 'var(--red)';
-        colorClass = 'critical';
-    } else if (inc.severity_score >= 4.0) {
-        color = 'var(--amber)';
-        colorClass = 'moderate';
-    }
-
-    const confPercent = Math.round((inc.confidence || 0.75) * 100);
-    const affectedVal = inc.affected_population || 6500;
-    const spreadRiskVal = inc.spread_risk || "medium";
-    const statusVal = inc.status || "monitoring";
-
-    // Build resources allocated list
-    let resourcesHTML = '';
-    if (inc.resource_assignment && Object.keys(inc.resource_assignment).length > 0) {
-        resourcesHTML = Object.entries(inc.resource_assignment)
-            .map(([k, v]) => `<strong>${v}</strong> ${k.replace('_', ' ')}`)
-            .join(' · ');
-    } else {
-        resourcesHTML = 'None';
-    }
-
-    let innerContent = '';
-    if (!expanded) {
-        innerContent = `
-        <div class="ic-content">
-            <div class="ic-header">
-                <div>
-                    <div class="ic-type">${(inc.crisis_type || 'UNKNOWN').toUpperCase()}</div>
-                    <div class="ic-loc mono"><i class="fa-solid fa-location-crosshairs" style="color:var(--amber);"></i> ${inc.location || 'Unknown Location'}</div>
-                </div>
-                <div class="ic-sev-container">
-                    <div class="ic-sev-value" style="color: ${color};">${inc.severity_score}</div>
-                    <div class="ic-sev-lbl">Severity</div>
-                </div>
-            </div>
-            <div class="ic-metrics">
-                <div class="ic-metric"><i class="fa-solid fa-users"></i> Pop: <strong>${affectedVal.toLocaleString()}</strong></div>
-                <div class="ic-metric">
-                    <span class="mono">Conf: ${confPercent}%</span>
-                    <div class="ic-progress-wrap">
-                        <div class="ic-progress-bar"><div class="ic-progress-fill" style="background:${color}; width:${confPercent}%"></div></div>
-                    </div>
-                </div>
-            </div>
-            <div class="ic-footer">
-                <span class="status-chip ${statusVal}"><div class="dot" style="background:${color}; box-shadow: 0 0 8px ${color};"></div> ${statusVal.replace('_', ' ')}</span>
-                <div class="ic-actions">
-                    <button class="btn btn-primary" onclick="showSection('incidents')">VIEW STAMP</button>
-                </div>
-            </div>
-        </div>`;
-    } else {
-        // Fully Expanded view with timeline traces, stakeholder messages grid, and verification banner
-        const hospitalAlert = inc.hospital_alert || "Jinnah Hospital";
-        const reroutingAlert = inc.traffic_rerouting || "Diversion in place";
-        const publicNotification = inc.public_notification || "Emergency response teams dispatched.";
-
-        // Default stakeholder messages in case Gemini output is stored as subfields or missing
-        const publicMsg = publicNotification;
-        const hospitalMsg = `Emergency ward alerted at ${hospitalAlert}. Preparing for priority arrivals.`;
-        const utilityMsg = `SNGPL & KESC warning: Precautionary shutoff checklist initiated for nearby pipelines at ${inc.location}.`;
-        const mediaMsg = `Media bulletin: Response operations initiated at ${inc.location} following high-accuracy spatial signal fusion.`;
-
-        innerContent = `
-        <div class="ic-content">
-            <div class="ic-header">
-                <div>
-                    <div class="ic-type" style="font-size: 22px;">${(inc.crisis_type || 'UNKNOWN').toUpperCase()}</div>
-                    <div class="ic-loc mono" style="font-size: 13px; margin-top: 4px;"><i class="fa-solid fa-location-crosshairs" style="color:var(--amber);"></i> ${inc.location || 'Unknown Location'}</div>
-                </div>
-                <div class="ic-sev-container">
-                    <div class="ic-sev-value" style="font-size: 42px; color: ${color};">${inc.severity_score}</div>
-                    <div class="ic-sev-lbl">Severity Score</div>
-                </div>
-            </div>
-
-            <!-- Incidents expanded layout grid -->
-            <div class="expanded-panel">
-                <div class="field-grid">
-                    <div class="field-block">
-                        <div class="field-lbl">Affected Population</div>
-                        <div class="field-val"><i class="fa-solid fa-user-group" style="color:var(--amber); margin-right: 6px;"></i> ${affectedVal.toLocaleString()} estimated</div>
-                    </div>
-                    <div class="field-block">
-                        <div class="field-lbl">Spread &amp; Cascade Risk</div>
-                        <div class="field-val"><i class="fa-solid fa-arrow-trend-up" style="color:var(--red); margin-right: 6px;"></i> ${spreadRiskVal.toUpperCase()} RISK</div>
-                    </div>
-                    <div class="field-block">
-                        <div class="field-lbl">FUSED FLEET ALLOCATIONS</div>
-                        <div class="field-val"><i class="fa-solid fa-truck-moving" style="color:var(--teal); margin-right: 6px;"></i> ${resourcesHTML}</div>
-                    </div>
-                    <div class="field-block">
-                        <div class="field-lbl">AI ALLOCATION REASONING</div>
-                        <div class="field-val" style="font-size: 11px; line-height: 1.4; color: var(--text-muted);">${inc.allocation_reasoning || 'Monitoring status only. No active allocation triggers.'}</div>
-                    </div>
-                </div>
-
-                <!-- Agent trace timeline visual -->
-                <div class="mono" style="font-size: 10px; color: var(--text-muted); margin-bottom: 10px; font-weight: 700; text-transform: uppercase;">Agent Ingestion Tracing</div>
-                <div class="trace-timeline">
-                    <div class="trace-item">
-                        <div class="trace-dot done" style="border-color:var(--blue); background:var(--blue);"></div>
-                        <div class="trace-agent" style="color:var(--blue);">AGENT 1 — SIGNAL INGESTION</div>
-                        <div class="trace-action">Fusing visual drone footage and call streams. Accuracy: ${confPercent}%</div>
-                    </div>
-                    <div class="trace-item">
-                        <div class="trace-dot done" style="border-color:var(--amber); background:var(--amber);"></div>
-                        <div class="trace-agent" style="color:var(--amber);">AGENT 2 — GEOSPATIAL FUSION</div>
-                        <div class="trace-action">${inc.conflict_detected ? '⚠️ CONFLICT REPORT RESOLVED: Bursted line identified.' : 'No geographical conflicts verified.'}</div>
-                    </div>
-                    <div class="trace-item">
-                        <div class="trace-dot done" style="border-color:var(--teal); background:var(--teal);"></div>
-                        <div class="trace-agent" style="color:var(--teal);">AGENT 3 — FLEET DESK</div>
-                        <div class="trace-action">Proportional fleets allocated. Diverting logistics around NIPA corridors.</div>
-                    </div>
-                    <div class="trace-item">
-                        <div class="trace-dot ${statusVal === 'responding' ? 'done' : 'pending'}" style="border-color:var(--red); ${statusVal === 'responding' ? 'background:var(--red);' : ''}"></div>
-                        <div class="trace-agent" style="color:var(--red);">AGENT 4 — RUNTIMES</div>
-                        <div class="trace-action">Records logged to database document ID: <span class="mono">${inc.id || 'INC_001'}</span></div>
-                    </div>
-                </div>
-
-                <!-- 2x2 Stakeholder alert grid -->
-                <div class="mono" style="font-size: 10px; color: var(--text-muted); margin-bottom: 10px; font-weight: 700; text-transform: uppercase;">Tailored Stakeholder Broadcasts</div>
-                <div class="stakeholder-grid">
-                    <div class="sh-card">
-                        <div class="sh-icon"><i class="fa-solid fa-bullhorn" style="color: var(--amber);"></i></div>
-                        <div class="sh-info">
-                            <div class="sh-lbl">Public Alert</div>
-                            <div class="sh-text">${publicMsg}</div>
-                            <div class="sh-status">📡 Broadcast Sim Sent</div>
-                        </div>
-                    </div>
-                    <div class="sh-card">
-                        <div class="sh-icon"><i class="fa-solid fa-square-h" style="color: var(--red);"></i></div>
-                        <div class="sh-info">
-                            <div class="sh-lbl">Hospital Dispatch</div>
-                            <div class="sh-text">${hospitalMsg}</div>
-                            <div class="sh-status">🏥 Alert Acknowledged</div>
-                        </div>
-                    </div>
-                    <div class="sh-card">
-                        <div class="sh-icon"><i class="fa-solid fa-bolt-lightning" style="color: var(--amber);"></i></div>
-                        <div class="sh-info">
-                            <div class="sh-lbl">Utilities Checklist</div>
-                            <div class="sh-text">${utilityMsg}</div>
-                            <div class="sh-status">⚡ Auto isolation checklist queued</div>
-                        </div>
-                    </div>
-                    <div class="sh-card">
-                        <div class="sh-icon"><i class="fa-solid fa-camera" style="color: var(--blue);"></i></div>
-                        <div class="sh-info">
-                            <div class="sh-lbl">Press Bureau</div>
-                            <div class="sh-text">${mediaMsg}</div>
-                            <div class="sh-status">🎥 Live RSS feed published</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Bottom Verification Banner -->
-                ${statusVal === 'responding'
-                    ? `<div class="dispatch-banner"><i class="fa-solid fa-circle-check" style="margin-right: 6px;"></i> DISPATCH SIMULATION LOCKED - EN ROUTE</div>`
-                    : `<div class="dispatch-banner awaiting"><i class="fa-solid fa-circle-pause" style="margin-right: 6px;"></i> AWAITING GEOSPATIAL FIELD VERIFICATION</div>`
-                }
-            </div>
-        </div>`;
-    }
-
-    return `
-    <div class="incident-card" style="--accent-color: ${color};">
-        ${innerContent}
-    </div>`;
-}
-
-// ── Fleet Resource Utilization Rates ──────────────────────────────
-async function fetchResources() {
-    try {
-        const res = await fetch(`${API_URL}/incidents`);
-        if (!res.ok) throw new Error("Err");
-        const incidents = await res.json();
-        
-        // Define fixed counts
-        const limits = {
-            ambulances: 5,
-            rescue_teams: 3,
-            police_units: 4,
-            water_tankers: 2
-        };
-
-        const deployed = {
-            ambulances: 0,
-            rescue_teams: 0,
-            police_units: 0,
-            water_tankers: 0
-        };
-
-        incidents.forEach(inc => {
-            if (inc.status === 'responding' && inc.resource_assignment) {
-                Object.entries(inc.resource_assignment).forEach(([k, v]) => {
-                    if (deployed.hasOwnProperty(k)) {
-                        deployed[k] += parseInt(v) || 0;
-                    }
-                });
-            }
-        });
-
-        // Constrain deployed counts to maximum limits
-        let totalDeployed = 0;
-        let totalLimit = 14; // 5 + 3 + 4 + 2
-
-        Object.keys(limits).forEach(key => {
-            deployed[key] = Math.min(deployed[key], limits[key]);
-            totalDeployed += deployed[key];
-
-            const pct = Math.round((deployed[key] / limits[key]) * 100);
-            
-            // Update utilization text
-            const pctEl = document.getElementById(`util-${key}`);
-            const barEl = document.getElementById(`util-bar-${key}`);
-            if (pctEl) pctEl.textContent = `${pct}% DEPLOYED`;
-            if (barEl) barEl.style.width = `${pct}%`;
-
-            // Draw unit capsules
-            const capsuleContainer = document.getElementById(`units-${key}`);
-            if (capsuleContainer) {
-                let capsulesHTML = '';
-                for (let i = 1; i <= limits[key]; i++) {
-                    const isDeployed = i <= deployed[key];
-                    const unitName = `${key.slice(0,3).toUpperCase()}-${String(i).padStart(2,'0')}`;
-                    capsulesHTML += `<div class="unit-capsule ${isDeployed ? 'deployed' : ''}">${unitName}</div>`;
-                }
-                capsuleContainer.innerHTML = capsulesHTML;
-            }
-        });
-
-        // Update overall summary bar
-        const summaryVal = document.getElementById('res-summary-val');
-        if (summaryVal) {
-            summaryVal.textContent = `ACTIVE SHIELD: ${totalDeployed} UNITS DEPLOYED · ${totalLimit - totalDeployed} UNITS STANDBY`;
-        }
-
-    } catch(e) {
-        console.error("Resources fetching failed: ", e);
-    }
-}
-
-// ── Agent Audit Logs Layouts & Filters ──────────────────────────
-async function fetchLogs() {
-    try {
-        const res = await fetch(`${API_URL}/agent-logs`);
-        if (!res.ok) throw new Error("Fail");
-        allLogs = await res.json();
-        
-        renderFilteredLogs();
-    } catch(e) {
-        console.error("Logs load failed: ", e);
-    }
-}
-
-function filterLogs(filter) {
-    currentLogFilter = filter;
-    
-    // Toggle active filter button
-    const buttons = document.querySelectorAll('#logs .filter-bar button');
-    buttons.forEach(btn => {
-        if (btn.textContent.includes(filter) || (filter === 'ALL' && btn.textContent.includes('ALL'))) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
-    });
-
-    renderFilteredLogs();
-}
-
-function renderFilteredLogs() {
-    const listEl = document.getElementById('logs-list-container');
-    if (!listEl) return;
-
-    let filtered = [...allLogs];
-    if (currentLogFilter !== 'ALL') {
-        filtered = allLogs.filter(l => l.agent_name === currentLogFilter);
-    }
-
-    if (filtered.length === 0) {
-        listEl.innerHTML = `<div class="empty"><div class="empty-icon">≡</div><div class="empty-text">No active audit logs matching '${currentLogFilter}'.</div></div>`;
-        return;
-    }
-
-    listEl.innerHTML = filtered.map(log => {
-        let agentClass = 'agent-2';
-        if (log.agent_name.includes('Ingestion')) agentClass = 'agent-1';
-        else if (log.agent_name.includes('Fusion')) agentClass = 'agent-2';
-        else if (log.agent_name.includes('Allocation')) agentClass = 'agent-3';
-        else if (log.agent_name.includes('Execution')) agentClass = 'agent-4';
-
-        const step = log.step || 1;
-        const timeStr = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : '—';
-        const obs = log.observation || 'Observing data streams...';
-        const reasoning = log.reasoning || '';
-        const decision = log.decision || 'No routing decided.';
-
-        return `
-        <div class="log-card-box ${agentClass}">
-            <div class="log-card-top">
-                <div class="log-card-title">
-                    <span class="log-card-agent-lbl">${log.agent_name}</span>
-                    <span class="log-card-step">· Phase Step ${step}</span>
-                </div>
-                <div class="log-card-time">${timeStr}</div>
-            </div>
-            <div class="log-card-obs">${obs}</div>
-            
-            <!-- Expandable Reasoning -->
-            <div class="log-card-reasoning expandable-text collapsed" onclick="toggleReasoning(this)">
-                ${reasoning}
-                <div class="expand-indicator"><i class="fa-solid fa-angles-down"></i> click to show analysis details</div>
-            </div>
-            
-            <div class="log-card-decision"><i class="fa-solid fa-caret-right"></i> DECISION: ${decision}</div>
-        </div>`;
-    }).join('');
-}
-
-function toggleReasoning(element) {
-    element.classList.toggle('collapsed');
-    const indicator = element.querySelector('.expand-indicator');
-    if (indicator) {
-        if (element.classList.contains('collapsed')) {
-            indicator.innerHTML = '<i class="fa-solid fa-angles-down"></i> click to show analysis details';
-        } else {
-            indicator.innerHTML = '<i class="fa-solid fa-angles-up"></i> click to collapse';
-        }
-    }
-}
-
-// ── Quick Demo Scenario Loader ──────────────────────────────────
 function loadDemoScenario(type) {
-    const transcriptEl = document.getElementById('transcript-input');
-    const socialEl = document.getElementById('social-input');
-
+    const tr = document.getElementById('transcript-input');
+    const so = document.getElementById('social-input');
     if (type === 'flood') {
-        transcriptEl.value = "EMERGENCY: Urgent assistance needed blocks 13 and 14 in Gulshan-e-Iqbal. Water has breached residential gates due to heavy flash storms and rising street levels. Multiple families stuck on top levels. We need boats or trucks immediately to prevent people from drowning.";
-        socialEl.value = JSON.stringify([
-            { "id": "s_001", "text": "Panic on University Road! Roads are under 4 feet of water, cars are completely submerged near Gulshan block 13.", "platform": "Twitter", "timestamp": "2026-05-17T11:00:00Z", "location_mention": "Gulshan-e-Iqbal, Karachi", "likes": 120, "verified": true },
-            { "id": "s_002", "text": "Submerged streets near NIPA Chowrangi, avoid driving in Gulshan until storm ends.", "platform": "Facebook", "timestamp": "2026-05-17T11:02:00Z", "location_mention": "Gulshan", "likes": 40, "verified": false }
+        tr.value = 'EMERGENCY: Water has breached residential gates in Gulshan-e-Iqbal blocks 13 and 14. Multiple families are trapped on upper floors. Flash flooding from heavy rainfall. Need rescue boats immediately.';
+        so.value = JSON.stringify([
+            { id: 's1', text: 'Roads completely underwater near NIPA Chowrangi in Gulshan. Cars are submerged. Please avoid area.', platform: 'Twitter', timestamp: '2026-05-17T11:00:00Z', location_mention: 'Gulshan-e-Iqbal, Karachi', likes: 1200, verified: true },
+            { id: 's2', text: 'Families stranded on rooftops in Gulshan block 13. Water level rising rapidly. Urgent help needed.', platform: 'Facebook', timestamp: '2026-05-17T11:02:00Z', location_mention: 'Gulshan', likes: 350, verified: false },
+            { id: 's3', text: 'Flash flood confirmed in Gulshan-e-Iqbal. PDMA teams requested.', platform: 'Twitter', timestamp: '2026-05-17T11:05:00Z', location_mention: 'Gulshan-e-Iqbal', likes: 2100, verified: true }
         ], null, 2);
-        showToast("Gulshan Flood Scenario pre-populated.", "ok");
+        showToast('Gulshan Flood scenario loaded.', 'ok');
     } else {
-        transcriptEl.value = "ALERT: Massive amount of water filling G-9 Markaz square. It seems a central water pipeline has broken under high pressure and is flooding the streets. It is not natural rain flooding, but it needs instant utility isolating.";
-        socialEl.value = JSON.stringify([
-            { "id": "s_011", "text": "Avoid G-9 Markaz. Main pipeline burst. Water flowing like a river, traffic is backed up.", "platform": "Twitter", "timestamp": "2026-05-17T11:15:00Z", "location_mention": "Karachi", "likes": 95, "verified": true }
+        tr.value = 'Alert from G-9 Markaz. Large amount of water flooding the streets. Caller believes it may be a burst water main rather than natural flooding. Road is blocked and traffic is backed up.';
+        so.value = JSON.stringify([
+            { id: 's1', text: 'Not a flood in G-9. Main water pipeline burst near the roundabout. KWSB needs to respond.', platform: 'Twitter', timestamp: '2026-05-17T11:15:00Z', location_mention: 'Islamabad', likes: 12, verified: false },
+            { id: 's2', text: 'Broken pipe in G-9 causing flooding. Stop spreading panic about a flood.', platform: 'Facebook', timestamp: '2026-05-17T11:18:00Z', location_mention: 'G-9, Islamabad', likes: 4, verified: false }
         ], null, 2);
-        showToast("False Alarm scenario pre-populated.", "ok");
+        showToast('Conflict check scenario loaded.', 'ok');
     }
-
     updateCharCount('transcript-input', 'transcript-counter');
     updateCharCount('social-input', 'social-counter');
 }
 
-// ── Toasts Manager ──────────────────────────────────────────────
-function showToast(msg, type = 'ok') {
-    const container = document.getElementById('toast-container');
-    if (!container) return;
-
-    const t = document.createElement('div');
-    t.className = `toast-msg ${type}`;
-    t.textContent = msg;
-    container.appendChild(t);
-
-    setTimeout(() => {
-        t.remove();
-    }, 4000);
-}
-
-// ── SECTION EVENT TRIGGERS ──────────────────────────────────────
+// ── SECTION SWITCH ────────────────────────────────────────────────
 function onSectionSwitch(id) {
-    if (id === 'incidents') fetchIncidents();
-    if (id === 'logs') fetchLogs();
-    if (id === 'resources') fetchResources();
+    if (id === 'incidents') loadIncidents();
+    if (id === 'logs') loadLogs();
+    if (id === 'resources') loadResources();
 }
 
-// ── Google Maps Sleek Dark Military Theme Styling ──────────────
-const darkMilitaryMapStyle = [
-  { "elementType": "geometry", "stylers": [{ "color": "#121420" }] },
-  { "elementType": "labels.text.stroke", "stylers": [{ "color": "#121420" }] },
-  { "elementType": "labels.text.fill", "stylers": [{ "color": "#747b85" }] },
-  {
-    "featureType": "administrative",
-    "elementType": "geometry.stroke",
-    "stylers": [{ "color": "#303642" }]
-  },
-  {
-    "featureType": "administrative.country",
-    "elementType": "geometry.stroke",
-    "stylers": [{ "color": "#f59e0b" }, { "weight": 1.5 }]
-  },
-  {
-    "featureType": "administrative.province",
-    "elementType": "geometry.stroke",
-    "stylers": [{ "color": "#3f4654" }, { "weight": 0.8 }]
-  },
-  {
-    "featureType": "landscape",
-    "elementType": "geometry.fill",
-    "stylers": [{ "color": "#0c0e14" }]
-  },
-  {
-    "featureType": "poi",
-    "elementType": "geometry",
-    "stylers": [{ "color": "#161a25" }]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry",
-    "stylers": [{ "color": "#1c2130" }]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry.stroke",
-    "stylers": [{ "color": "#252b3d" }]
-  },
-  {
-    "featureType": "water",
-    "elementType": "geometry",
-    "stylers": [{ "color": "#07080c" }]
-  }
-];
-
-let map;
-let mapMarkers = [];
-
-function initPakistanMap() {
-    const mapElement = document.getElementById('pakistan-map');
-    if (!mapElement) return;
-
-    map = new google.maps.Map(mapElement, {
-        center: { lat: 30.3753, lng: 69.3451 },
-        zoom: 5,
-        styles: darkMilitaryMapStyle,
-        disableDefaultUI: false,
-        zoomControl: true,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: true
-    });
-
-    console.log("Google Map initialized successfully on Pakistan.");
-    plotMapMarkers();
+// ── TOAST ─────────────────────────────────────────────────────────
+function showToast(msg, type) {
+    const c = document.getElementById('toast-container');
+    if (!c) return;
+    const t = document.createElement('div');
+    t.className = 'toast ' + (type || 'ok');
+    t.textContent = msg;
+    c.appendChild(t);
+    setTimeout(() => t.remove(), 4000);
 }
 
-function getCoordinatesForLocation(locationStr) {
-    const loc = (locationStr || "").toLowerCase();
-    let center = { lat: 30.3753, lng: 69.3451 };
-    
-    if (loc.includes('karachi') || loc.includes('gulshan')) {
-        center = { lat: 24.8607, lng: 67.0011 };
-    } else if (loc.includes('lahore') || loc.includes('dha')) {
-        center = { lat: 31.5204, lng: 74.3587 };
-    } else if (loc.includes('islamabad') || loc.includes('f-6') || loc.includes('margalla') || loc.includes('g-9')) {
-        center = { lat: 33.6844, lng: 73.0479 };
-    } else if (loc.includes('hyderabad') || loc.includes('latifabad')) {
-        center = { lat: 25.3960, lng: 68.3578 };
-    } else if (loc.includes('peshawar') || loc.includes('hayatabad')) {
-        center = { lat: 34.0151, lng: 71.5249 };
-    }
-    
-    const jitterLat = (Math.random() - 0.5) * 0.08;
-    const jitterLng = (Math.random() - 0.5) * 0.08;
-    
-    return {
-        lat: center.lat + jitterLat,
-        lng: center.lng + jitterLng
-    };
+function timeSince(dateString) {
+    const date = new Date(dateString);
+    const seconds = Math.floor((new Date() - date) / 1000);
+    let interval = Math.floor(seconds / 31536000);
+    if (interval >= 1) return interval + " years ago";
+    interval = Math.floor(seconds / 2592000);
+    if (interval >= 1) return interval + " months ago";
+    interval = Math.floor(seconds / 86400);
+    if (interval >= 1) return interval + " days ago";
+    interval = Math.floor(seconds / 3600);
+    if (interval >= 1) return interval + " hours ago";
+    interval = Math.floor(seconds / 60);
+    if (interval >= 1) return interval + " mins ago";
+    if (seconds < 0 || isNaN(seconds)) return "just now";
+    return Math.floor(seconds) + " secs ago";
 }
 
-function plotMapMarkers() {
-    if (!map) return;
-
-    mapMarkers.forEach(m => m.setMap(null));
-    mapMarkers = [];
-
-    // 1. Plot Incidents
-    if (allIncidents && allIncidents.length > 0) {
-        allIncidents.forEach(inc => {
-            const coords = getCoordinatesForLocation(inc.location);
-            const severity = parseFloat(inc.severity_score || 0);
-            
-            let markerColor = '#10B981';
-            if (severity > 7.0) {
-                markerColor = '#EF4444';
-            } else if (severity >= 4.0) {
-                markerColor = '#F59E0B';
-            }
-
-            const marker = new google.maps.Marker({
-                position: coords,
-                map: map,
-                title: inc.location,
-                icon: {
-                    path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
-                    scale: 6,
-                    fillColor: markerColor,
-                    fillOpacity: 0.9,
-                    strokeColor: '#FFFFFF',
-                    strokeWeight: 1.5
-                }
-            });
-
-            let resourcesText = "None allocated yet.";
-            if (inc.resource_assignment && Object.keys(inc.resource_assignment).length > 0) {
-                resourcesText = Object.entries(inc.resource_assignment)
-                    .map(([res, qty]) => `<span class="tag" style="background: rgba(245,158,11,0.1); color: var(--amber); border-color: rgba(245,158,11,0.2); font-size:10px; padding:2px 6px;">${res}: ${qty}</span>`)
-                    .join(" ");
-            }
-
-            const infoWindowContent = `
-                <div style="color: #FFFFFF; font-family: 'Space Grotesk', sans-serif; padding: 10px; max-width: 250px;">
-                    <div style="font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: ${markerColor}; display: flex; align-items: center; gap: 6px;">
-                        <i class="fa-solid fa-triangle-exclamation"></i> ${inc.incident_id || "INCIDENT"}
-                    </div>
-                    <div style="font-size: 12px; font-weight: 600; margin-top: 4px;">Loc: ${inc.location}</div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Crisis: <strong>${inc.crisis_type || 'unknown'}</strong></div>
-                    <div style="font-size: 11px; color: var(--text-muted);">Severity: <strong>${severity.toFixed(1)}/10</strong></div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 6px;">
-                        <strong>Allocated Assets:</strong><br>
-                        <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;">${resourcesText}</div>
-                    </div>
-                </div>
-            `;
-
-            const infowindow = new google.maps.InfoWindow({
-                content: infoWindowContent
-            });
-
-            marker.addListener('click', () => {
-                infowindow.open(map, marker);
-            });
-
-            mapMarkers.push(marker);
-        });
-    }
-
-    // 2. Plot Weather pins
-    fetch(`${API_URL}/weather`)
-        .then(response => response.json())
-        .then(weatherData => {
-            const cityCoords = {
-                "Karachi": { lat: 24.8607, lng: 67.0011 },
-                "Lahore": { lat: 31.5204, lng: 74.3587 },
-                "Islamabad": { lat: 33.6844, lng: 73.0479 },
-                "Hyderabad": { lat: 25.3960, lng: 68.3578 },
-                "Peshawar": { lat: 34.0151, lng: 71.5249 }
-            };
-
-            const weatherEmojis = {
-                "Clear": "☀️",
-                "Haze": "🌫️",
-                "Rain": "🌧️",
-                "Clouds": "⛅",
-                "Partly Cloudy": "🌤️",
-                "Thunderstorm": "⛈️",
-                "Smoke": "🌫️"
-            };
-
-            weatherData.forEach(cityData => {
-                const city = cityData.city;
-                const coords = cityCoords[city];
-                if (!coords) return;
-
-                const emoji = weatherEmojis[cityData.condition] || "☀️";
-                const temp = cityData.temperature;
-
-                const marker = new google.maps.Marker({
-                    position: coords,
-                    map: map,
-                    title: `${city} Meteorological Center`,
-                    label: {
-                        text: `${emoji} ${temp}°C`,
-                        color: "#F59E0B",
-                        fontSize: "12px",
-                        fontWeight: "700"
-                    },
-                    icon: {
-                        path: google.maps.SymbolPath.CIRCLE,
-                        scale: 1,
-                        fillOpacity: 0,
-                        strokeOpacity: 0
-                    }
-                });
-
-                const infoWindowContent = `
-                    <div style="color: #FFFFFF; font-family: 'Space Grotesk', sans-serif; padding: 10px; max-width: 220px;">
-                        <div style="font-weight: 700; font-size: 13px; text-transform: uppercase; color: var(--blue); display: flex; align-items: center; gap: 6px;">
-                            <i class="fa-solid fa-cloud-sun-rain"></i> MET REPORT: ${city}
-                        </div>
-                        <div style="font-size: 20px; font-weight: 800; margin-top: 6px; color: var(--text-primary); font-family: 'JetBrains Mono', monospace;">
-                            ${temp}°C <span style="font-size: 14px; font-weight:500; color: var(--text-muted);">${cityData.condition}</span>
-                        </div>
-                        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Humidity: <strong>${cityData.humidity}%</strong></div>
-                        <div style="font-size: 11px; color: var(--text-muted);">Wind: <strong>${cityData.wind_speed} km/h (${cityData.wind_direction}°)</strong></div>
-                        <div style="font-size: 11px; color: var(--text-muted);">Flood Threat: <strong style="color: ${cityData.flood_risk === 'HIGH' ? 'var(--red)' : cityData.flood_risk === 'MEDIUM' ? 'var(--amber)' : 'var(--teal)'};">${cityData.flood_risk}</strong></div>
-                    </div>
-                `;
-
-                const infowindow = new google.maps.InfoWindow({
-                    content: infoWindowContent
-                });
-
-                marker.addListener('click', () => {
-                    infowindow.open(map, marker);
-                });
-
-                mapMarkers.push(marker);
-            });
-        })
-        .catch(err => console.error("Error plotting weather map markers: ", err));
-
-    // 3. Query /satellite-alerts and Plot Satellite hotspots
-    fetch(`${API_URL}/satellite-alerts`)
-        .then(response => response.json())
-        .then(satelliteData => {
-            satelliteData.forEach(hotspot => {
-                const coords = { lat: parseFloat(hotspot.latitude), lng: parseFloat(hotspot.longitude) };
-                
-                const marker = new google.maps.Marker({
-                    position: coords,
-                    map: map,
-                    title: `SATELLITE DETECTED: ${hotspot.region}`,
-                    icon: {
-                        path: google.maps.SymbolPath.CIRCLE,
-                        scale: 6,
-                        fillColor: '#EF4444',
-                        fillOpacity: 0.9,
-                        strokeColor: '#F59E0B',
-                        strokeWeight: 1.5
-                    }
-                });
-
-                const infoWindowContent = `
-                    <div style="color: #FFFFFF; font-family: 'Space Grotesk', sans-serif; padding: 10px; max-width: 220px;">
-                        <div style="font-weight: 700; font-size: 12px; text-transform: uppercase; color: var(--red); display: flex; align-items: center; gap: 6px; border-bottom: 1px solid rgba(239,68,68,0.2); padding-bottom: 6px; margin-bottom: 6px;">
-                            <i class="fa-solid fa-satellite-dish"></i> SATELLITE ANOMALY DETECTED
-                        </div>
-                        <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
-                            ${hotspot.region}
-                        </div>
-                        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Brightness Temp: <strong>${hotspot.bright_ti4} K</strong></div>
-                        <div style="font-size: 11px; color: var(--text-muted);">Confidence: <strong style="text-transform: capitalize;">${hotspot.confidence}</strong></div>
-                        <div style="font-size: 11px; color: var(--text-muted);">FRP (Radiative Power): <strong>${hotspot.frp} MW</strong></div>
-                        <div style="font-size: 11px; color: var(--text-muted);">Timestamp: <strong>${hotspot.acq_date} ${hotspot.acq_time} UTC</strong></div>
-                    </div>
-                `;
-
-                const infowindow = new google.maps.InfoWindow({
-                    content: infoWindowContent
-                });
-
-                marker.addListener('click', () => {
-                    infowindow.open(map, marker);
-                });
-
-                mapMarkers.push(marker);
-            });
-        })
-        .catch(err => console.error("Error plotting satellite map markers: ", err));
+async function loadEarthquakes() {
+    try {
+        const r = await fetch(API_URL + '/earthquakes');
+        if (!r.ok) return;
+        const data = await r.json();
+        const el = document.getElementById('earthquake-strip');
+        if (!el) return;
+        if (!data || !data.length) {
+            el.innerHTML = '<div style="padding: 10px; color: var(--text-sub); font-size: 12px;">No recent earthquakes detected near Pakistan.</div>';
+            return;
+        }
+        el.innerHTML = data.map(eq => {
+            const riskClass = eq.severity === 'critical' ? 'risk-high' : eq.severity === 'moderate' ? 'risk-medium' : 'risk-low';
+            return `
+      <div class="weather-card">
+        <div class="weather-city" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${eq.place}">${eq.place}</div>
+        <div class="weather-temp-row">
+          <span class="weather-temp" style="color: ${eq.magnitude >= 6.0 ? 'var(--red)' : eq.magnitude >= 4.5 ? 'var(--amber)' : 'var(--teal)'};">${eq.magnitude.toFixed(1)}</span>
+          <span class="weather-icon-text" style="font-size:12px;color:var(--text-sub);">Mag</span>
+        </div>
+        <div class="weather-meta">
+          <span>Depth: ${eq.depth_km} km</span>
+          <span>Time: ${timeSince(eq.time)}</span>
+        </div>
+        <span class="weather-risk ${riskClass}">${eq.severity.toUpperCase()}</span>
+      </div>`;
+        }).join('');
+    } catch (e) { console.error('Earthquakes:', e); }
 }
 
-function loadWeatherStrip() {
-    const stripEl = document.getElementById('weather-strip');
-    if (!stripEl) return;
-
-    fetch(`${API_URL}/weather`)
-        .then(response => response.json())
-        .then(data => {
-            const emojis = {
-                "Clear": "☀️",
-                "Haze": "🌫️",
-                "Rain": "🌧️",
-                "Clouds": "⛅",
-                "Partly Cloudy": "🌤️",
-                "Thunderstorm": "⛈️",
-                "Smoke": "🌫️"
-            };
-
-            stripEl.innerHTML = data.map(cityInfo => {
-                const emoji = emojis[cityInfo.condition] || "☀️";
-                const riskClass = cityInfo.flood_risk.toLowerCase();
-                
-                return `
-                    <div class="weather-card">
-                        <div class="weather-city">${cityInfo.city}</div>
-                        <div class="weather-temp-row">
-                            <span class="weather-temp">${Math.round(cityInfo.temperature)}°C</span>
-                            <span class="weather-emoji">${emoji}</span>
-                        </div>
-                        <div class="weather-meta">
-                            <div><i class="fa-solid fa-droplet"></i> Humid: <strong>${cityInfo.humidity}%</strong></div>
-                            <div><i class="fa-solid fa-wind"></i> Wind: <strong>${cityInfo.wind_speed} km/h</strong></div>
-                        </div>
-                        <div class="weather-risk-badge ${riskClass}">Flood: ${cityInfo.flood_risk}</div>
-                    </div>
-                `;
-            }).join("");
-        })
-        .catch(err => {
-            console.error("Error loading weather strip: ", err);
-            stripEl.innerHTML = `<div class="empty">Unable to fetch weather feeds. Check server logs.</div>`;
-        });
-}
-
-function loadWeatherAlertsBanner() {
-    const bannerEl = document.getElementById('weather-alerts-banner');
-    const detailsEl = document.getElementById('weather-alert-details');
-    if (!bannerEl || !detailsEl) return;
-
-    fetch(`${API_URL}/weather/alerts`)
-        .then(response => response.json())
-        .then(alerts => {
-            if (alerts && alerts.length > 0) {
-                const alertMsgs = alerts.map(a => `${a.city}: ${a.message}`).join(" | ");
-                detailsEl.innerText = alertMsgs;
-                bannerEl.style.display = 'flex';
+async function loadThreatAssessment() {
+    try {
+        const r = await fetch(API_URL + '/threat-assessment');
+        if (!r.ok) return;
+        const d = await r.json();
+        const level = d.overall_threat_level || 'LOW';
+        const badge = document.getElementById('threat-level');
+        if (badge) {
+            badge.textContent = level;
+            if (level === 'CRITICAL') {
+                badge.style.background = 'var(--red-bg)';
+                badge.style.color = 'var(--red)';
+                badge.style.borderColor = 'var(--red)';
+            } else if (level === 'HIGH') {
+                badge.style.background = 'var(--amber-bg)';
+                badge.style.color = 'var(--amber)';
+                badge.style.borderColor = 'var(--amber)';
+            } else if (level === 'MEDIUM') {
+                badge.style.background = 'var(--blue-bg)';
+                badge.style.color = 'var(--blue)';
+                badge.style.borderColor = 'var(--blue)';
             } else {
-                bannerEl.style.display = 'none';
+                badge.style.background = 'var(--teal-bg)';
+                badge.style.color = 'var(--teal)';
+                badge.style.borderColor = 'var(--teal)';
             }
-        })
-        .catch(err => console.error("Error loading weather alerts banner: ", err));
-}
-
-function dismissAlertsBanner() {
-    const bannerEl = document.getElementById('weather-alerts-banner');
-    if (bannerEl) {
-        bannerEl.style.display = 'none';
-    }
-}
-
-function loadMonitoringStatus() {
-    const lastEl = document.getElementById('monitor-last-time');
-    const nextEl = document.getElementById('monitor-next-time');
-    if (!lastEl || !nextEl) return;
-
-    fetch(`${API_URL}/monitoring-status`)
-        .then(response => response.json())
-        .then(data => {
-            if (data) {
-                const lastStr = data.last_run ? new Date(data.last_run).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "Never";
-                const nextStr = data.next_run ? new Date(data.next_run).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "--:--";
-                lastEl.textContent = lastStr;
-                nextEl.textContent = nextStr;
-            }
-        })
-        .catch(err => console.error("Error loading monitoring status: ", err));
+        }
+        const wCount = document.getElementById('threat-weather-count');
+        const qCount = document.getElementById('threat-quake-count');
+        const sCount = document.getElementById('threat-satellite-count');
+        if (wCount) wCount.textContent = d.active_weather_alerts || 0;
+        if (qCount) qCount.textContent = (d.recent_earthquakes ? d.recent_earthquakes.length : 0);
+        if (sCount) sCount.textContent = (d.satellite_hotspots ? d.satellite_hotspots.length : 0);
+    } catch (e) { console.error('Threat assessment:', e); }
 }

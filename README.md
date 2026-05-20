@@ -1,8 +1,8 @@
-# MDTS CIRO — Multimodal Disaster Triage System
+# MDTS CIRO - Multimodal Disaster Triage System
 
 ### Real-Time Agentic AI System for Pakistan Disaster Response
-**Hackathon:** AISeekho 2026 Google Antigravity Hackathon — Challenge 3: Crisis Intelligence and Response Orchestrator (CIRO)
-**Team Lead:** Yusra Batool — Sukkur IBA University
+**Hackathon:** AISeekho 2026 Google Antigravity Hackathon, Challenge 3: Crisis Intelligence and Response Orchestrator (CIRO)
+**Team Lead:** Yusra Batool
 **Live Demo:** https://mdts-ciro-2026-9a7e3.web.app
 **GitHub:** https://github.com/Yusra-Shah/mdts-ciro
 
@@ -152,16 +152,16 @@ http://localhost:5000
 
 ## Agent Details
 
-**Agent 1 — Signal Ingestion**
+**Agent 1: Signal Ingestion**
 Processes 4 streams simultaneously. Google Vision API analyzes satellite imagery and returns damage score and crisis type. Gemini classifies emergency transcripts extracting location, urgency level 1 to 5, and distress class. Gemini analyzes social media posts extracting dominant location, urgency score, credibility, and conflict indicators. OpenWeatherMap data is ingested as a 4th environmental signal stream.
 
-**Agent 2 — Fusion and Scoring**
+**Agent 2: Fusion and Scoring**
 Clusters signals by normalized location using fuzzy matching. Calculates composite severity using weighted formula: satellite weight 0.3, emergency call weight 0.4, social media weight 0.3, adjusted by source credibility. Detects conflicts between sources and flags them. Estimates affected population and spread risk. Sorts incidents by severity descending.
 
-**Agent 3 — Resource Allocation**
+**Agent 3: Resource Allocation**
 Manages fixed resource pool: 5 ambulances, 3 rescue teams, 4 police units, 2 water tankers. Allocates based on crisis type and severity. Flood gets rescue teams and water tankers. Collapse gets rescue teams and ambulances. Heatwave gets ambulances. Never deploys more than available. Generates traffic rerouting, hospital alerts, and public notifications per incident.
 
-**Agent 4 — Execution**
+**Agent 4: Execution**
 Writes every incident to Firestore with full detail. Calls Gemini to generate 4 stakeholder messages: public alert, hospital notice, utility alert for KESC and SNGPL, and media brief. Creates dispatch tickets with estimated arrival times. Logs every agent step to agent_logs collection for full audit transparency. Low-severity incidents get verification_required status instead of blind dispatch.
 
 ---
@@ -239,5 +239,5 @@ Future phases include:
 
 ## Team
 
-**Yusra Batool** — Team Lead
-**Inshrah Batool** — Team Member
+**Yusra Batool** Team Lead
+**Inshrah Batool** Team Member

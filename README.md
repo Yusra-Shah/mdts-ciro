@@ -240,3 +240,4 @@ Future phases include:
 ## Team
 
 **Yusra Batool** — Team Lead
+**Inshrah Batool** — Team Member

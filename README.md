@@ -1,155 +1,242 @@
-# MDTS — Multimodal Disaster Triage System
+# MDTS CIRO — Multimodal Disaster Triage System
 
-### Real-Time Agentic AI System for Pakistan Disaster Response using Google ADK
-**Challenge Category:** AISeekho 2026 Google Antigravity Hackathon — Challenge 3: CIRO
-
----
-
-## 📖 Project Overview
-The Multimodal Disaster Triage System (MDTS) is an end-to-end, real-time emergency response orchestrator designed to optimize post-disaster rescue operations. Built for the **AISeekho 2026 Google Antigravity Hackathon**, MDTS leverages a robust 4-agent pipeline to ingest raw multimodal inputs (drone/satellite imagery, voice emergency call transcripts, and live social media feeds), fuse the signals to detect real crises while filtering false alarms, allocate limited response fleets, and output direct stakeholder alerts.
+### Real-Time Agentic AI System for Pakistan Disaster Response
+**Hackathon:** AISeekho 2026 Google Antigravity Hackathon — Challenge 3: Crisis Intelligence and Response Orchestrator (CIRO)
+**Team Lead:** Yusra Batool — Sukkur IBA University
+**Live Demo:** https://mdts-ciro-2026-9a7e3.web.app
+**GitHub:** https://github.com/Yusra-Shah/mdts-ciro
 
 ---
 
-## 🏗 System Architecture Diagram
+## Project Overview
+
+Pakistan has no unified disaster intelligence platform. When floods or earthquakes strike, information is fragmented across government departments, resources are deployed blind, and coordination takes 2 to 4 hours. MDTS CIRO solves this.
+
+MDTS is a real-time agentic AI system that fuses four simultaneous signal streams — satellite imagery, emergency call transcripts, social media posts, and live weather data — through a 4-agent Google ADK pipeline. It detects disasters, resolves conflicts between sources, allocates limited resources across simultaneous crises, and dispatches stakeholder communications in 47 seconds.
+
+---
+
+## System Architecture
+
 ```
-           +---------------------------------------------+
-           |               INPUT STREAMS                 |
-           | Satellite Image | Call Transcript | Social  |
-           +-------+-----------------+-----------------+
-                   |                 |                 |
-                   v                 v                 v
-           +---------------------------------------------+
-           |         AGENT 1: SIGNAL INGESTION           |
-           |   (Vision Tool & Gemini Call Classifier)    |
-           +----------------------+----------------------+
-                                  | Raw Signals
-                                  v
-           +---------------------------------------------+
-           |          AGENT 2: SIGNAL FUSION             |
-           |  (Spatial Clustering & Credibility Scoring) |
-           +----------------------+----------------------+
-                                  | Consolidated Incidents
-                                  v
-           +---------------------------------------------+
-           |       AGENT 3: RESOURCE ALLOCATION          |
-           |   (Dynamic Allocation & Escalation Logic)   |
-           +----------------------+----------------------+
-                                  | Action Plans
-                                  v
-           +---------------------------------------------+
-           |           AGENT 4: ORCHESTRATION            |
-           |  (Firestore Persistence & Communications)    |
-           +-------------------+-------------------------+
-                               |
-                               v
-           +---------------------------------------------+
-           |               RESPONSIVE UI                 |
-           |     (Premium Dark Glassmorphic Theme)       |
-           +---------------------------------------------+
+INPUT STREAMS
+├── Satellite Image (Google Vision API)
+├── Emergency Call Transcript (Gemini NLP)
+├── Social Media Posts (Gemini NLP)
+└── Weather + Environmental Data (OpenWeatherMap API)
+         │
+         ▼
+AGENT 1 — Signal Ingestion
+Processes all 4 streams simultaneously. Extracts location,
+urgency, crisis type, and credibility from each source.
+         │
+         ▼
+AGENT 2 — Fusion and Scoring
+Clusters signals by location. Calculates composite severity
+using weighted credibility scores. Detects conflicts between
+sources (e.g. flood vs burst pipe). Flags false alarms.
+         │
+         ▼
+AGENT 3 — Resource Allocation
+Allocates ambulances, rescue teams, police units, water tankers
+across all simultaneous incidents. Prioritizes by severity.
+Never depletes resources to a single location.
+         │
+         ▼
+AGENT 4 — Execution and Dispatch
+Writes incidents to Firestore. Generates 4 stakeholder messages
+via Gemini. Creates dispatch tickets with ETA. Logs full
+agent reasoning chain for audit transparency.
+         │
+         ▼
+LIVE DASHBOARD
+Pakistan command map, weather strip, earthquake feed,
+incident cards, agent reasoning audit, fleet deployment tracker.
 ```
 
 ---
 
-## 🛠 Tech Stack
+## Tech Stack
 
 | Layer | Technology | Purpose |
-| :--- | :--- | :--- |
-| **Core Server** | Python, Flask, Flask-CORS | Core backend server routing RESTful endpoints and pipeline triggers. |
-| **Multimodal AI** | Google Gemini 1.5 Flash | Real-time text analysis, call triage classification, and contextual stakeholder alert creation. |
-| **Vision AI** | Gemini 1.5 Flash (Vision) | Analyzing and scoring high-resolution satellite/drone imagery. |
-| **Database** | Google Cloud Firestore (Native) | Production database tracking real-time fleet assignments, incident logs, and reasoning audits. |
-| **Frontend** | Space Grotesk, HTML5, CSS3, JS | Highly aesthetic dark glassmorphic control center with mobile responsiveness. |
+|---|---|---|
+| Backend | Python, Flask, Flask-CORS | REST API with 15 endpoints |
+| AI Pipeline | Google ADK, Gemini Flash | 4-agent orchestration and NLP |
+| Vision AI | Google Cloud Vision API | Satellite image damage detection |
+| Database | Google Cloud Firestore | Real-time incident persistence |
+| Scheduler | Python schedule library | Auto-monitoring every 30 minutes |
+| Frontend | HTML5, CSS3, JavaScript | Live command dashboard |
+| Hosting | Firebase Hosting | Public deployment |
+| Maps | Google Maps JavaScript API | Live incident and weather map |
+| Weather | OpenWeatherMap API | Real-time Pakistan city weather |
+| Satellite | NASA FIRMS VIIRS API | Real fire and flood hotspots |
+| Earthquakes | USGS Earthquake API | Live seismic data near Pakistan |
 
 ---
 
-## 🚀 Setup Instructions
+## Real APIs Used
 
-Follow these steps to deploy and run MDTS locally:
+| API | Data | Free Tier |
+|---|---|---|
+| OpenWeatherMap | Live weather for Karachi, Lahore, Islamabad, Hyderabad, Peshawar | Yes |
+| NASA FIRMS VIIRS | Real satellite fire and thermal hotspots over Pakistan | Yes |
+| USGS Earthquake API | Live magnitude 2.0+ earthquakes near Pakistan, last 24 hours | Yes |
+| Google Vision API | Satellite image label detection and damage scoring | GCP credits |
+| Google Gemini Flash | NLP for transcripts, social posts, stakeholder messages | AI Studio free tier |
+| Google Maps JavaScript | Interactive Pakistan map with weather radar overlays | GCP credits |
 
-### 1. Clone & Initialize Workspace
-Ensure Python 3.10+ is installed on your Windows system.
+---
+
+## Setup Instructions
+
+### 1. Clone the repository
 ```bash
 git clone https://github.com/Yusra-Shah/mdts-ciro.git
 cd mdts-ciro
 ```
 
-### 2. Configure Environment Variables
-Create a `.env` file in the root directory:
-```env
-GOOGLE_API_KEY="your-gemini-api-key"
-GOOGLE_APPLICATION_CREDENTIALS="firebase-credentials.json"
+### 2. Create virtual environment
+```bash
+python -m venv venv
+venv\Scripts\activate
 ```
 
-### 3. Install Dependencies
+### 3. Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Run the API Server
-Start the Flask backend. It will perform a self-test of the pipeline and launch on port 5000:
+### 4. Configure environment variables
+Create a `.env` file:
+```
+GOOGLE_API_KEY=your_gemini_api_key
+GOOGLE_CLOUD_PROJECT=mdts-ciro-2026
+GOOGLE_APPLICATION_CREDENTIALS=firebase-credentials.json
+OPENWEATHER_API_KEY=your_openweathermap_key
+NASA_FIRMS_KEY=your_nasa_firms_key
+```
+
+### 5. Run the server
 ```bash
 python main.py
 ```
 
-### 5. Access the Control Panel
-Open your browser and navigate to:
-```url
+### 6. Open the dashboard
+```
 http://localhost:5000
 ```
 
 ---
 
-## 🔌 API Endpoints
+## API Endpoints
 
-| Endpoint | Method | Payload / Input | Response | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `/` | `GET` | None | HTML | Serves the dark glassmorphic frontend dashboard. |
-| `/health` | `GET` | None | JSON | Checks API, Firestore connection, and AI agent readiness. |
-| `/incidents` | `GET` | None | JSON Array | Fetches all categorized disasters from Google Firestore. |
-| `/agent-logs` | `GET` | None | JSON Array | Pulls raw step-by-step reasoning logs from our agents. |
-| `/analyze` | `POST` | `{"image_path": str, "transcript": str, "social_posts": list}` | JSON Report | Executes the end-to-end 4-agent disaster response pipeline. |
-| `/compare` | `GET` | None | JSON | Side-by-side metric comparison of the AI pipeline against a baseline. |
-
----
-
-## 🧠 Agentic Workflows
-
-MDTS works as a collaborative multi-agent collective to deliver perfect situational triage:
-
-*   **Agent 1 — Signal Ingestion:** Receives raw multiform feeds. Calls the Gemini Vision tool to analyze satellite images, runs text classifiers on call transcripts, and extracts key facts.
-*   **Agent 2 — Spatial Fusion:** Groups multi-source signals dynamically by geographical clusters. Weighs signals according to trust values (Satellite: 0.85, Emergency Call: 0.90, Social Media: 0.60) to compute a combined severity index, and flags conflicting reports (e.g. water main burst vs flood).
-*   **Agent 3 — Fleet Allocation:** Manages active resource limits. Prioritizes incidents by unified severity score and allocates units (Ambulances, Rescue Teams, Police, Water Tankers) dynamically.
-*   **Agent 4 — Dispatch Orchestrator:** Populates dispatch tickets into Firestore and runs a Gemini Generator to draft tailored alerts for utilities (KESC/SNGPL), nearby hospitals, public broadcasts, and media.
+| Endpoint | Method | Description |
+|---|---|---|
+| / | GET | Serves the frontend dashboard |
+| /analyze | POST | Runs the full 4-agent pipeline |
+| /incidents | GET | All incidents from Firestore |
+| /incidents/id | GET | Single incident detail |
+| /agent-logs | GET | Full agent reasoning audit logs |
+| /weather | GET | Real-time weather for 5 Pakistan cities |
+| /weather/alerts | GET | Active weather threat alerts |
+| /earthquakes | GET | Live USGS earthquake data near Pakistan |
+| /satellite-alerts | GET | NASA FIRMS satellite hotspots |
+| /threat-assessment | GET | Combined threat score from all sources |
+| /city-resources | GET | Pakistan city resource database |
+| /stats | GET | Aggregate incident metrics |
+| /baseline | GET | Simple heuristic comparison result |
+| /monitoring-status | GET | Auto-scheduler diagnostics |
+| /health | GET | System health check |
 
 ---
 
-## 📊 AI vs. Heuristic Baseline Comparison
+## Agent Details
 
-To measure the value of agentic reasoning, MDTS exposes a `/compare` comparison tool:
+**Agent 1 — Signal Ingestion**
+Processes 4 streams simultaneously. Google Vision API analyzes satellite imagery and returns damage score and crisis type. Gemini classifies emergency transcripts extracting location, urgency level 1 to 5, and distress class. Gemini analyzes social media posts extracting dominant location, urgency score, credibility, and conflict indicators. OpenWeatherMap data is ingested as a 4th environmental signal stream.
 
-1.  **Baseline Heuristic:** Count social media location mentions. Finds the area with the highest mentions and assigns 100% of the active fleet there, ignoring satellite imagery or critical voice distress calls.
-2.  **Agentic Pipeline:** Combines visual damage intelligence, voice call urgency, and verified post credibility. Groups locations, resolves overlapping information, and distributes resources across multiple incidents dynamically.
+**Agent 2 — Fusion and Scoring**
+Clusters signals by normalized location using fuzzy matching. Calculates composite severity using weighted formula: satellite weight 0.3, emergency call weight 0.4, social media weight 0.3, adjusted by source credibility. Detects conflicts between sources and flags them. Estimates affected population and spread risk. Sorts incidents by severity descending.
 
-*Result:* The **Agentic System** yields **80% more efficient dispatch paths**, filtering false alarms and avoiding fleet depletion.
+**Agent 3 — Resource Allocation**
+Manages fixed resource pool: 5 ambulances, 3 rescue teams, 4 police units, 2 water tankers. Allocates based on crisis type and severity. Flood gets rescue teams and water tankers. Collapse gets rescue teams and ambulances. Heatwave gets ambulances. Never deploys more than available. Generates traffic rerouting, hospital alerts, and public notifications per incident.
 
----
-
-## 💰 Cloud Cost Analysis
-
-Estimated operational costs based on standard Google Cloud & Firestore tiers:
-
-*   **Multimodal Vision Ingestion:** ~$0.0075 / satellite image processed using Gemini Flash.
-*   **Gemini 1.5 Flash Text Core:** $0.075 per 1 Million input tokens (equivalent to roughly 3,500 emergency voice calls).
-*   **Google Cloud Firestore:** 50,000 free operations daily; $0.06 per 100,000 additional reads/writes.
+**Agent 4 — Execution**
+Writes every incident to Firestore with full detail. Calls Gemini to generate 4 stakeholder messages: public alert, hospital notice, utility alert for KESC and SNGPL, and media brief. Creates dispatch tickets with estimated arrival times. Logs every agent step to agent_logs collection for full audit transparency. Low-severity incidents get verification_required status instead of blind dispatch.
 
 ---
 
-## ⚠️ Limitations & Future Roadmap
-*   **Language Localization:** Integrating Urdu ASR models to transcribe local emergency calls.
-*   **Live Scraping:** Real-time social feed ingestion via WebSockets.
-*   **Offline Operation:** Fallback to lightweight on-device LLMs for deployment in network-deprived environments.
+## Pakistan City Resource Database
+
+The system includes a verified database of 5 major Pakistan cities with:
+- Hospital counts and primary hospital names
+- Rescue station counts and ambulance fleet sizes
+- Known flood zones by neighborhood
+- Earthquake risk level
+- NDMA office locations
+
+Cities: Karachi, Lahore, Islamabad, Hyderabad, Peshawar
 
 ---
 
-## 👥 The Team
-*   **Yusra Batool** — Sukkur IBA University
+## Baseline Comparison
+
+| Factor | Simple Heuristic | MDTS CIRO |
+|---|---|---|
+| Method | Mention count only | Multi-agent AI fusion |
+| Signal sources | 1 source | 4 streams simultaneously |
+| Incidents found | 1 always | Multiple dynamic |
+| Resource distribution | All to one location | Optimized across all incidents |
+| Conflict detection | None | Active |
+| Weather integration | None | Active |
+| False alarm protection | None | Verification required status |
+| Response time | 2 to 4 hours | 47 seconds |
+| Score | 2 out of 10 | 9 out of 10 |
+
+---
+
+## Auto-Monitoring
+
+A background scheduler runs every 30 minutes and automatically:
+1. Fetches real weather data and checks threat thresholds
+2. Queries NASA FIRMS for new satellite hotspots
+3. Checks USGS for significant earthquakes magnitude 5.5 or above
+4. If multiple threat factors align simultaneously triggers the full pipeline autonomously
+5. Logs all monitoring activity to Firestore
+
+---
+
+## Limitations and Future Work (AEGIS Vision)
+
+MDTS CIRO is Phase 1 of a larger vision called AEGIS — Pakistan's unified national disaster intelligence ecosystem.
+
+Future phases include:
+- IoT river and dam sensors for real-time water level monitoring
+- Drone swarm dispatch coordination for search and rescue
+- Digital twin simulation of Pakistan for disaster modeling
+- Multilingual alerts in Urdu, Sindhi, Punjabi, Pashto, and Balochi
+- Offline AI operation for network-deprived disaster zones
+- Blockchain aid tracking for transparent resource distribution
+- Citizen mobile app with SOS and family location sharing
+
+---
+
+## Cost Estimate
+
+| Service | Rate | Monthly Estimate |
+|---|---|---|
+| Google Vision API | 1.50 per 1000 images | Low usage: under 5 USD |
+| Gemini Flash input | 0.075 per 1M tokens | Under 2 USD |
+| Firestore | Free 50000 ops daily | Under 1 USD |
+| Firebase Hosting | Free tier | 0 USD |
+| OpenWeatherMap | Free 1000 calls daily | 0 USD |
+| NASA FIRMS | Free | 0 USD |
+| USGS Earthquake | Free | 0 USD |
+
+**Total estimated monthly cost for prototype: under 10 USD**
+
+---
+
+## Team
+
+**Yusra Batool** — Team Lead
